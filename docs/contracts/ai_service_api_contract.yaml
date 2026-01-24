@@ -1,0 +1,270 @@
+openapi: 3.0.3
+info:
+  title: AI Service API
+  description: |
+    Görsel analiz, vektör benzerlik araması, agent tabanlı sohbet ve güvenlik kontrolleri
+    sağlayan servis için API sözleşmesi.
+  version: 1.0.0
+
+servers:
+  - url: https://api.example.com
+    description: Production
+
+paths:
+  /analyze:
+    post:
+      summary: Görsel Analiz (Async Job)
+      description: |
+        Görsel analiz işlemini asenkron bir job olarak başlatır.
+        İş Redis queue'ya alınır ve hemen bir job_id döndürülür.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '202':
+          description: Analiz job'u kuyruğa alındı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeJobResponse'
+        '400':
+          description: Geçersiz istek
+        '500':
+          description: Sunucu hatası
+
+  /analyze/{job_id}:
+    get:
+      summary: Görsel Analiz Job Durumu
+      description: |
+        Belirtilen job_id için analiz durumunu ve varsa sonucu döndürür.
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job durumu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeJobStatusResponse'
+        '404':
+          description: Job bulunamadı
+        '500':
+          description: Sunucu hatası
+
+  /sim-search:
+    post:
+      summary: Metin Tabanlı Benzerlik Araması
+      description: |
+        Metin sorgusunu vektöre çevirir ve vector database
+        üzerinde en benzer sonuçları döndürür.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimSearchRequest'
+      responses:
+        '200':
+          description: Benzerlik araması sonuçları
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimSearchResponse'
+        '400':
+          description: Geçersiz istek
+        '500':
+          description: Sunucu hatası
+
+  /chat:
+    post:
+      summary: Agent Sohbet
+      description: |
+        Kullanıcıyla bağlam farkındalığı olan sohbet sağlar.
+        Gerekirse ek aksiyonlar tetikleyebilir.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Sohbet cevabı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '500':
+          description: Sunucu hatası
+
+  /safety-check:
+    post:
+      summary: Güvenlik Kontrolü
+      description: |
+        Görsel üzerinde NSFW veya zararlı içerik tespiti yapar.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SafetyCheckRequest'
+      responses:
+        '200':
+          description: Güvenlik kontrolü sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafetyCheckResponse'
+        '500':
+          description: Sunucu hatası
+
+  /health:
+    get:
+      summary: Sistem Durumu
+      description: Servisin ve modellerin ayakta olup olmadığını kontrol eder.
+      responses:
+        '200':
+          description: Sistem durumu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  schemas:
+    AnalyzeRequest:
+      type: object
+      required:
+        - post_id
+        - image_url
+      properties:
+        post_id:
+          type: string
+          description: Analiz edilecek postun ID'si
+        image_url:
+          type: string
+          format: uri
+          description: Görselin URL adresi
+
+    AnalyzeJobResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+          description: Oluşturulan job ID
+        status:
+          type: string
+          example: queued
+
+    AnalyzeJobStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+        result:
+          type: object
+          nullable: true
+          properties:
+            aesthetic_score:
+              type: number
+              format: float
+            suggested_tags:
+              type: array
+              items:
+                type: string
+        error:
+          type: string
+          nullable: true
+
+    SimSearchRequest:
+      type: object
+      required:
+        - query_text
+        - top_k
+      properties:
+        query_text:
+          type: string
+        top_k:
+          type: integer
+          minimum: 1
+
+    SimSearchResponse:
+      type: object
+      properties:
+        matches:
+          type: array
+          items:
+            type: object
+            properties:
+              post_id:
+                type: string
+              score:
+                type: number
+                format: float
+
+    ChatRequest:
+      type: object
+      required:
+        - user_id
+        - message
+      properties:
+        user_id:
+          type: string
+        message:
+          type: string
+        history:
+          type: array
+          items:
+            type: object
+            description: Önceki mesajlar (serbest format)
+
+    ChatResponse:
+      type: object
+      properties:
+        reply:
+          type: string
+        actions:
+          type: array
+          items:
+            type: string
+
+    SafetyCheckRequest:
+      type: object
+      required:
+        - image_url
+      properties:
+        image_url:
+          type: string
+          format: uri
+
+    SafetyCheckResponse:
+      type: object
+      properties:
+        is_safe:
+          type: boolean
+        reason:
+          type: string
+          example: violence
+        confidence:
+          type: number
+          format: float
+          example: 0.99
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: online
+        models_loaded:
+          type: array
+          items:
+            type: string
