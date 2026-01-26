@@ -1,0 +1,68 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ai-service-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ai-service-network
+
+  api:
+    build: .
+    container_name: ai-service-api
+    command: uv run uvicorn app:combined_app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOG_LEVEL=INFO
+    volumes:
+      - .:/app  # Mount for hot reload during development
+    restart: unless-stopped
+    networks:
+      - ai-service-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    build: .
+    command: uv run python analyze_worker.py
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOG_LEVEL=INFO
+    volumes:
+      - .:/app  # Mount for hot reload during development
+    restart: unless-stopped
+    networks:
+      - ai-service-network
+    deploy:
+      replicas: 2  # Run 2 worker instances
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  ai-service-network:
+    driver: bridge
