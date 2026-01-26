@@ -4,7 +4,7 @@ import logging
 import signal
 from redis.asyncio import ConnectionError
 from redis_client import redis_client
-from app import notify_backend  #beware of circular imports
+from src.services.notification_service import notification_service
 
 
 JOB_PREFIX = "analyze_job:"
@@ -49,7 +49,7 @@ async def run_worker():
                     }
                 )
 
-                await notify_backend({
+                await notification_service.notify_job_completion({
                     "job_id": job_id,
                     "status": "completed",
                     "aesthetic_score": score,
@@ -69,7 +69,7 @@ async def run_worker():
                 )
                 await redis_client.expire(job_key, 1800) # 30 dakika
 
-                await notify_backend({
+                await notification_service.notify_job_completion({
                     "job_id": job_id,
                     "status": "failed",
                     "error": str(e)

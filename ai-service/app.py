@@ -1,7 +1,7 @@
-import socketio
 from fastapi import FastAPI, HTTPException
 from schemas import AnalyzeRequest, AnalyzeJobResponse, AnalyzeJobStatusResponse
 from redis_client import redis_client
+from src.services.notification_service import notification_service
 import json
 import logging
 import uuid
@@ -27,18 +27,10 @@ async def lifespan(app: FastAPI):
     await redis_client.close()
     logger.info("Redis connection closed")
 
-sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*') # allow all origins for testing
 app = FastAPI(title="AI Service", version="1.0.0", lifespan=lifespan)
 
 # Combine FastAPI and Socket.IO into one ASGI app
-combined_app = socketio.ASGIApp(sio, other_asgi_app=app)
-
-@sio.event
-async def connect(sid, environ):
-    logger.info(f"Client connected: {sid}")
-
-async def notify_backend(job_data):         #Şuanda tüm clientlara gönderiyor, TODO: daha sonra sadece ilgili backend'e gönderecek şekilde değiştirilecek
-    await sio.emit("job_done", job_data)
+combined_app = notification_service.get_asgi_app(app)
 
 
 # This endpoint has been implemented for manual testing purposes. Originally, jobs are enqueued by backend service.
