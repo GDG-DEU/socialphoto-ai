@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from src.models.schemas import AnalyzeRequest, AnalyzeJobResponse, AnalyzeJobStatusResponse
+from src.models.schemas import AnalyzeRequest, AnalyzeJobResponse, AnalyzeJobStatusResponse, SimSearchRequest
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 import json
@@ -84,3 +84,36 @@ async def get_analyze_job_status(job_id: str):
         "result": result,
         "error": error
     }
+
+
+@app.post("/sim-search")
+async def similarity_search(req: SimSearchRequest):
+    """Retrieves similar images based on a given text and/or image URL from Pinecone."""
+    if req.query_text is None and req.image_url is None:
+        raise HTTPException(status_code=400, detail="At least one of query_text or image_url must be provided")
+
+    try:
+        # --- FAKE SIMILARITY SEARCH ---
+        logger.info("--- FAKE SIMILARITY SEARCH ---")
+        logger.info(f"Received sim search request: {req.model_dump()}")
+
+        # Fake results
+        results = [
+            {
+                "image_url": "https://example.com/image1.jpg",
+                "sim_score": 0.95
+            },
+            {
+                "image_url": "https://example.com/image2.jpg",
+                "sim_score": 0.93
+            },
+            {
+                "image_url": "https://example.com/image3.jpg",
+                "sim_score": 0.91
+            }
+        ][:req.top_k]
+
+        return {"results": results}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

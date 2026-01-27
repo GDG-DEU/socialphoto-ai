@@ -16,3 +16,13 @@ class AnalyzeJobStatusResponse(BaseModel):
     status: Literal["queued", "processing", "completed", "failed"]
     result: Optional[dict] = None
     error: Optional[str] = None
+
+
+class SimSearchRequest(BaseModel):
+    query_text: Optional[str] = None
+    image_url: Optional[HttpUrl] = None
+    top_k: int = 5
+
+
+class SimSearchResponse(BaseModel):
+    results: list[dict]

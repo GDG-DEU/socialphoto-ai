@@ -24,10 +24,10 @@ def test_analyze_endpoint():
     if response.status_code == 202:
         job_id = response.json()["job_id"]
         print(f"\n✅ Job created successfully! Job ID: {job_id}")
-        return job_id
+        return job_id, True
     else:
         print("\n❌ Failed to create job")
-        return None
+        return None, False
 
 def test_job_status(job_id):
     """Test GET /analyze/{job_id} endpoint"""
@@ -51,8 +51,10 @@ def test_job_status(job_id):
     if response.json().get("status") == "completed":
         print("\n✅ Job completed successfully!")
         print(f"Results: {response.json().get('result')}")
+        return True
     else:
         print(f"\n⚠️  Job status: {response.json().get('status')}")
+        return False
 
 def test_nonexistent_job():
     """Test GET /analyze/{job_id} with invalid ID"""
@@ -66,25 +68,115 @@ def test_nonexistent_job():
     
     if response.status_code == 404:
         print("\n✅ Correctly returned 404 for non-existent job")
+        return True
     else:
         print("\n❌ Expected 404 status code")
+        return False
+
+def test_similarity_search():
+    """Test POST /sim-search endpoint"""
+    print("\n" + "=" * 50)
+    print("TEST 4: POST /sim-search")
+    print("=" * 50)
+    
+    passed = 0
+    total = 4
+    
+    # Test with text query
+    payload = {
+        "query_text": "beautiful sunset",
+        "top_k": 3
+    }
+    
+    response = requests.post(f"{BASE_URL}/sim-search", json=payload)
+    print(f"Status Code: {response.status_code}")
+    print(f"Response (text query): {json.dumps(response.json(), indent=2)}")
+    
+    if response.status_code == 200:
+        results = response.json().get("results", [])
+        print(f"\n✅ Similarity search successful! Found {len(results)} results")
+        passed += 1
+    else:
+        print("\n❌ Similarity search failed")
+    
+    # Test with image URL
+    print("\n" + "-" * 50)
+    payload = {
+        "image_url": "https://example.com/query-image.jpg",
+        "top_k": 2
+    }
+    
+    response = requests.post(f"{BASE_URL}/sim-search", json=payload)
+    print(f"Response (image query): {json.dumps(response.json(), indent=2)}")
+    
+    if response.status_code == 200:
+        results = response.json().get("results", [])
+        print(f"✅ Found {len(results)} similar images")
+        passed += 1
+    else:
+        print("❌ Image similarity search failed")
+    
+    # Test with both text and image
+    print("\n" + "-" * 50)
+    payload = {
+        "query_text": "mountain landscape",
+        "image_url": "https://example.com/mountain.jpg",
+        "top_k": 5
+    }
+    
+    response = requests.post(f"{BASE_URL}/sim-search", json=payload)
+    print(f"Response (combined query): {json.dumps(response.json(), indent=2)}")
+    
+    if response.status_code == 200:
+        print("✅ Combined query successful")
+        passed += 1
+    else:
+        print("❌ Combined query failed")
+    
+    # Test with neither text nor image (should fail with 400)
+    print("\n" + "-" * 50)
+    payload = {
+        "top_k": 3
+    }
+    
+    response = requests.post(f"{BASE_URL}/sim-search", json=payload)
+    print(f"Response (no query): {json.dumps(response.json(), indent=2)}")
+    
+    if response.status_code == 400:
+        print("✅ Correctly rejected empty query with 400")
+        passed += 1
+    else:
+        print(f"❌ Expected 400 status code, got {response.status_code}")
+    
+    return passed == total
 
 if __name__ == "__main__":
     try:
         print("\n🚀 Starting AI Service API Tests\n")
         
+        tests_passed = 0
+        tests_total = 4
+        
         # Test 1: Create a job
-        job_id = test_analyze_endpoint()
+        job_id, passed = test_analyze_endpoint()
+        if passed:
+            tests_passed += 1
         
         if job_id:
             # Test 2: Check job status
-            test_job_status(job_id)
+            if test_job_status(job_id):
+                tests_passed += 1
         
         # Test 3: Invalid job ID
-        test_nonexistent_job()
+        if test_nonexistent_job():
+            tests_passed += 1
+        
+        # Test 4: Similarity search
+        if test_similarity_search():
+            tests_passed += 1
         
         print("\n" + "=" * 50)
-        print("✅ All tests completed!")
+        print(f"✅ {tests_passed}/{tests_total} tests passed correctly!")
         print("=" * 50)
         
     except requests.exceptions.ConnectionError:

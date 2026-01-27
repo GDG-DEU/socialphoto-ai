@@ -188,10 +188,20 @@ components:
       type: object
       required:
         - query_text
+        - image_url
+        - weight
         - top_k
       properties:
         query_text:
           type: string
+        image_url:
+          type: string
+          format: uri
+        weight:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
         top_k:
           type: integer
           minimum: 1
