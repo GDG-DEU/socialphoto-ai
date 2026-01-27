@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
-from schemas import AnalyzeRequest, AnalyzeJobResponse, AnalyzeJobStatusResponse
-from redis_client import redis_client
+from src.models.schemas import AnalyzeRequest, AnalyzeJobResponse, AnalyzeJobStatusResponse
+from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 import json
 import logging

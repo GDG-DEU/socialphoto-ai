@@ -3,7 +3,7 @@ import asyncio
 import logging
 import signal
 from redis.asyncio import ConnectionError
-from redis_client import redis_client
+from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 
 

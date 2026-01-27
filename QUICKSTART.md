@@ -19,7 +19,7 @@ python main.py
 ### 3. Worker (Yeni terminal)
 ```bash
 source .venv/bin/activate
-python analyze_worker.py
+python -m src.workers.analyze_worker
 ```
 
 ## 🧪 Test
