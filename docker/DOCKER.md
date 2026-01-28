@@ -5,6 +5,7 @@
 ### Tüm Servisleri Başlat (Tek Komut)
 
 ```bash
+cd docker
 docker-compose up -d
 ```
 
@@ -30,12 +31,14 @@ docker-compose logs -f worker
 ### Servisleri Durdur
 
 ```bash
+cd docker
 docker-compose down
 ```
 
 ### Her Şeyi Temizle (Volumes Dahil)
 
 ```bash
+cd docker
 docker-compose down -v
 ```
 
@@ -72,6 +75,8 @@ docker-compose up -d --scale worker=1
 ### Build & Start
 
 ```bash
+cd docker
+
 # Build images
 docker-compose build
 
@@ -99,6 +104,8 @@ docker-compose exec worker bash
 ### Restart & Update
 
 ```bash
+cd docker
+
 # Tüm servisleri restart et
 docker-compose restart
 
@@ -197,7 +204,9 @@ services:
     # ports kaldırıldı
 
   api:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     command: uv run uvicorn app:combined_app --host 0.0.0.0 --port 8000 --workers 4
     restart: always
     environment:
@@ -208,8 +217,10 @@ services:
     # volumes kaldırıldı
 
   worker:
-    build: .
-    command: uv run python analyze_worker.py
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: uv run python -m src.workers.analyze_worker
     restart: always
     environment:
       - REDIS_HOST=redis
@@ -222,6 +233,7 @@ services:
 **Kullanım:**
 
 ```bash
+cd docker
 docker-compose -f docker-compose.prod.yml up -d
 ```
 

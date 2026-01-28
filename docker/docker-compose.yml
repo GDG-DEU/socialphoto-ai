@@ -2,8 +2,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ai-service-redis
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -16,7 +14,9 @@ services:
       - ai-service-network
 
   api:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: ai-service-api
     command: uv run uvicorn app:combined_app --host 0.0.0.0 --port 8000 --reload
     ports:
@@ -29,19 +29,21 @@ services:
       - REDIS_PORT=6379
       - LOG_LEVEL=INFO
     volumes:
-      - .:/app  # Mount for hot reload during development
+      - ..:/app  # Mount for hot reload during development
     restart: unless-stopped
     networks:
       - ai-service-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   worker:
-    build: .
-    command: uv run python analyze_worker.py
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: uv run python -m src.workers.analyze_worker
     depends_on:
       redis:
         condition: service_healthy
@@ -52,7 +54,7 @@ services:
       - REDIS_PORT=6379
       - LOG_LEVEL=INFO
     volumes:
-      - .:/app  # Mount for hot reload during development
+      - ..:/app  # Mount for hot reload during development
     restart: unless-stopped
     networks:
       - ai-service-network

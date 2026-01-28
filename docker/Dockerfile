@@ -7,17 +7,21 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
+# Install uv
+RUN pip install --no-cache-dir uv
+
+# Copy dependency files first for better caching
 COPY pyproject.toml uv.lock ./
 
-# Install uv and dependencies
-RUN pip install --no-cache-dir uv && \
-    uv sync --frozen
+# Install dependencies
+RUN uv sync --frozen
 
 # Copy application code
-COPY . .
+COPY app.py main.py ./
+COPY src/ ./src/
 
 # Expose port for API
 EXPOSE 8000
