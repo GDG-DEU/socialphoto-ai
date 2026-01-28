@@ -26,3 +26,19 @@ class SimSearchRequest(BaseModel):
 
 class SimSearchResponse(BaseModel):
     results: list[dict]
+
+
+class ChatRequest(BaseModel):
+    user_id: str
+    message: str
+    history: Optional[list[dict]] = None
+
+
+class Action(BaseModel):
+    type: str  # e.g., "search_images", "analyze_photo"
+    parameters: dict
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    actions: Optional[list[Action]] = None

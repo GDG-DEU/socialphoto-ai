@@ -243,8 +243,26 @@ components:
           type: string
         actions:
           type: array
+          nullable: true
           items:
-            type: string
+            $ref: '#/components/schemas/Action'
+    
+    Action:
+      type: object
+      required:
+        - type
+        - parameters
+      properties:
+        type:
+          type: string
+          description: Action türü (örn. "search_images", "analyze_photo")
+          example: search_images
+        parameters:
+          type: object
+          description: Action için gerekli parametreler
+          example:
+            query: "sunset beach"
+            top_k: 10
 
     SafetyCheckRequest:
       type: object

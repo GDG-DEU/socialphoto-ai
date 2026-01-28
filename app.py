@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from src.models.schemas import AnalyzeRequest, AnalyzeJobResponse, AnalyzeJobStatusResponse, SimSearchRequest
+from src.models.schemas import *
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 import json
@@ -114,6 +114,30 @@ async def similarity_search(req: SimSearchRequest):
         ][:req.top_k]
 
         return {"results": results}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(req: ChatRequest):
+    """Handles chat messages and generates responses with optional actions."""
+    try:
+        # --- FAKE CHAT RESPONSE ---
+        logger.info("--- FAKE CHAT RESPONSE ---")
+        logger.info(f"Received chat request: {req.model_dump()}")
+
+        # Fake response
+        reply = f"Hello User {req.user_id}, you said: {req.message}"
+        actions = []
+
+        # Dummy actions based on keywords for now
+        if "search" in req.message.lower():
+            actions.append(Action(type="search_images", parameters={"query_text": req.message}))
+        elif "analyze" in req.message.lower():
+            actions.append(Action(type="analyze_photo", parameters={"image_url": "https://example.com/photo.jpg"}))
+
+        return ChatResponse(reply=reply, actions=actions if actions else None)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

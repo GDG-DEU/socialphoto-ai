@@ -150,12 +150,99 @@ def test_similarity_search():
     
     return passed == total
 
+def test_chat_endpoint():
+    """Test POST /chat endpoint"""
+    print("\n" + "=" * 50)
+    print("TEST 5: POST /chat")
+    print("=" * 50)
+    
+    passed = 0
+    total = 4
+    
+    # Test basic chat
+    payload = {
+        "user_id": "user_123",
+        "message": "Hello, how are you?"
+    }
+    
+    response = requests.post(f"{BASE_URL}/chat", json=payload)
+    print(f"Status Code: {response.status_code}")
+    print(f"Response (basic chat): {json.dumps(response.json(), indent=2)}")
+    
+    if response.status_code == 200 and response.json().get("reply"):
+        print("\n✅ Basic chat successful!")
+        passed += 1
+    else:
+        print("\n❌ Basic chat failed")
+    
+    # Test chat with "search" keyword (should trigger action)
+    print("\n" + "-" * 50)
+    payload = {
+        "user_id": "user_123",
+        "message": "Can you search for sunset images?"
+    }
+    
+    response = requests.post(f"{BASE_URL}/chat", json=payload)
+    print(f"Response (search keyword): {json.dumps(response.json(), indent=2)}")
+    
+    if response.status_code == 200:
+        actions = response.json().get("actions", [])
+        if actions and any(a.get("type") == "search_images" for a in actions):
+            print("✅ Search action triggered correctly")
+            passed += 1
+        else:
+            print("⚠️  Expected search_images action")
+    else:
+        print("❌ Search keyword chat failed")
+    
+    # Test chat with "analyze" keyword (should trigger action)
+    print("\n" + "-" * 50)
+    payload = {
+        "user_id": "user_456",
+        "message": "Please analyze this photo for me"
+    }
+    
+    response = requests.post(f"{BASE_URL}/chat", json=payload)
+    print(f"Response (analyze keyword): {json.dumps(response.json(), indent=2)}")
+    
+    if response.status_code == 200:
+        actions = response.json().get("actions", [])
+        if actions and any(a.get("type") == "analyze_photo" for a in actions):
+            print("✅ Analyze action triggered correctly")
+            passed += 1
+        else:
+            print("⚠️  Expected analyze_photo action")
+    else:
+        print("❌ Analyze keyword chat failed")
+    
+    # Test chat with history
+    print("\n" + "-" * 50)
+    payload = {
+        "user_id": "user_789",
+        "message": "What did I ask before?",
+        "history": [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there!"}
+        ]
+    }
+    
+    response = requests.post(f"{BASE_URL}/chat", json=payload)
+    print(f"Response (with history): {json.dumps(response.json(), indent=2)}")
+    
+    if response.status_code == 200:
+        print("✅ Chat with history successful")
+        passed += 1
+    else:
+        print("❌ Chat with history failed")
+    
+    return passed == total
+
 if __name__ == "__main__":
     try:
         print("\n🚀 Starting AI Service API Tests\n")
         
         tests_passed = 0
-        tests_total = 4
+        tests_total = 5
         
         # Test 1: Create a job
         job_id, passed = test_analyze_endpoint()
@@ -173,6 +260,10 @@ if __name__ == "__main__":
         
         # Test 4: Similarity search
         if test_similarity_search():
+            tests_passed += 1
+        
+        # Test 5: Chat endpoint
+        if test_chat_endpoint():
             tests_passed += 1
         
         print("\n" + "=" * 50)
