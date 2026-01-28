@@ -101,6 +101,14 @@ docker-compose exec api bash
 docker-compose exec worker bash
 ```
 
+> **Not:** Container içinde Python komutları çalıştırırken `uv run` kullanın:
+> ```bash
+> # Container içinde
+> uv run python -c "import redis; print(redis.__version__)"
+> uv run pytest
+> uv run python -m src.workers.analyze_worker
+> ```
+
 ### Restart & Update
 
 ```bash
