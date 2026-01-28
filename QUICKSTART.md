@@ -24,14 +24,30 @@ python -m src.workers.analyze_worker
 
 ## 🧪 Test
 
+### Unit Testler (Pytest)
+```bash
+# Tüm unit testleri çalıştır
+uv run pytest
+
+# Detaylı çıktı
+uv run pytest -v
+
+# Coverage raporu ile
+uv run pytest --cov=src
+
+# Belirli test sınıfını çalıştır
+uv run pytest -k "TestChatEndpoint"
+```
+
+### Integration Testler
+```bash
+# Sunucu çalışırken
+source .venv/bin/activate
+python tests/integration/test_api.py
+```
+
 ### API Docs ile Test
 Tarayıcıda aç: http://localhost:8000/docs
-
-### Test Script ile
-```bash
-source .venv/bin/activate
-python test_api.py
-```
 
 ### Curl ile
 ```bash
@@ -84,10 +100,15 @@ redis-cli lrange analyze_queue 0 -1
 
 ## 🔗 API Endpoints
 
-- `POST /analyze` - Görsel analiz job'u oluştur (202 Accepted)
-- `GET /analyze/{job_id}` - Job durumunu sorgula
-- `GET /docs` - Swagger UI
-- `GET /redoc` - ReDoc API Docs
+| Endpoint | Method | Açıklama |
+|----------|--------|----------|
+| `/analyze` | POST | Görsel analiz job'u oluştur (202 Accepted) |
+| `/analyze/{job_id}` | GET | Job durumunu sorgula |
+| `/sim-search` | POST | Metin/görsel benzerlik araması |
+| `/chat` | POST | Agent sohbet |
+| `/health` | GET | Servis sağlık durumu |
+| `/docs` | GET | Swagger UI |
+| `/redoc` | GET | ReDoc API Docs |
 
 ## 🏗️ Sistem Mimarisi
 
