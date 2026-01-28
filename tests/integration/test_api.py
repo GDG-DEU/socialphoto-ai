@@ -237,12 +237,46 @@ def test_chat_endpoint():
     
     return passed == total
 
+def test_health_endpoint():
+    """Test GET /health endpoint"""
+    print("\n" + "=" * 50)
+    print("TEST 6: GET /health")
+    print("=" * 50)
+    
+    response = requests.get(f"{BASE_URL}/health")
+    print(f"Status Code: {response.status_code}")
+    print(f"Response: {json.dumps(response.json(), indent=2)}")
+    
+    if response.status_code == 200:
+        data = response.json()
+        status = data.get("status")
+        models_loaded = data.get("models_loaded", [])
+        
+        if status in ["online", "degraded", "offline"]:
+            print(f"\n✅ Health check successful!")
+            print(f"   Status: {status}")
+            print(f"   Healthy components: {models_loaded}")
+            
+            # Check if Redis is healthy (should be if server is running)
+            if "redis" in models_loaded:
+                print("✅ Redis health check passed")
+            else:
+                print("⚠️  Redis not in healthy components")
+            
+            return True
+        else:
+            print(f"\n❌ Unexpected status value: {status}")
+            return False
+    else:
+        print("\n❌ Health check failed")
+        return False
+
 if __name__ == "__main__":
     try:
         print("\n🚀 Starting AI Service API Tests\n")
         
         tests_passed = 0
-        tests_total = 5
+        tests_total = 6
         
         # Test 1: Create a job
         job_id, passed = test_analyze_endpoint()
@@ -264,6 +298,10 @@ if __name__ == "__main__":
         
         # Test 5: Chat endpoint
         if test_chat_endpoint():
+            tests_passed += 1
+        
+        # Test 6: Health endpoint
+        if test_health_endpoint():
             tests_passed += 1
         
         print("\n" + "=" * 50)
