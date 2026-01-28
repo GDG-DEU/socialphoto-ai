@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from src.models.schemas import *
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
+from src.services.health_service import health_service
 import json
 import logging
 import uuid
@@ -20,6 +21,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
         raise
+    
+    # Register health checks
+    health_service.register("redis", redis_client.ping)
+    # TODO: Register ML model health checks when implemented
+    # health_service.register("clip", clip_model.health_check)
+    # health_service.register("aesthetic_scorer", aesthetic_scorer.health_check)
+    # health_service.register("tagger", tagger_model.health_check)
+    # health_service.register("pinecone", pinecone_client.health_check)
     
     yield
     
@@ -141,3 +150,15 @@ async def chat_endpoint(req: ChatRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Returns the health status of the service and loaded models."""
+    status = await health_service.get_status()
+    healthy_components = await health_service.get_healthy_components()
+    
+    return HealthResponse(
+        status=status,
+        models_loaded=healthy_components
+    )

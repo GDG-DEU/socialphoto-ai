@@ -42,3 +42,8 @@ class Action(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     actions: Optional[list[Action]] = None
+
+
+class HealthResponse(BaseModel):
+    status: str
+    models_loaded: list[str]
