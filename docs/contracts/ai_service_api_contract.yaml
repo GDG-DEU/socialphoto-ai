@@ -71,6 +71,7 @@ paths:
       description: |
         Metin sorgusunu vektöre çevirir ve vector database
         üzerinde en benzer sonuçları döndürür.
+        En az bir tanesi (query_text veya image_url) sağlanmalıdır.
       security:
         - ApiKeyAuth: []
       requestBody:
@@ -198,37 +199,35 @@ components:
 
     SimSearchRequest:
       type: object
-      required:
-        - query_text
-        - image_url
-        - weight
-        - top_k
+      oneOf:
+        - required: [query_text]
+        - required: [image_url]
       properties:
         query_text:
           type: string
+          description: Text query for similarity search (at least one of query_text or image_url must be provided)
         image_url:
           type: string
           format: uri
-        weight:
-          type: number
-          format: float
-          minimum: 0.0
-          maximum: 1.0
+          description: Image URL for similarity search (at least one of query_text or image_url must be provided)
         top_k:
           type: integer
           minimum: 1
+          default: 5
+          description: Number of results to return
 
     SimSearchResponse:
       type: object
       properties:
-        matches:
+        results:
           type: array
           items:
             type: object
             properties:
-              post_id:
+              image_url:
                 type: string
-              score:
+                format: uri
+              sim_score:
                 type: number
                 format: float
 

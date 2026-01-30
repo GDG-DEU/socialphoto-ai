@@ -26,7 +26,11 @@ async def run_worker():
 
     while not shutdown_event.is_set():
         try:
-            _, job_id = await redis_client.blpop("analyze_queue")
+            result = await redis_client.blpop("analyze_queue", timeout=1)
+            if result is None:
+                continue
+            _, job_id = result
+            
             retry_delay = 1  # Reset retry delay on successful connection
             job_key = f"{JOB_PREFIX}{job_id}"
 

@@ -1,6 +1,9 @@
 # Use Python 3.12 slim image
 FROM python:3.12-slim
 
+# Build argument to control dev dependencies installation
+ARG INSTALL_DEV=false
+
 # Set working directory
 WORKDIR /app
 
@@ -16,8 +19,16 @@ RUN pip install --no-cache-dir uv
 # Copy dependency files first for better caching
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies
-RUN uv sync --frozen --extra dev
+# Install dependencies conditionally
+# Production: only runtime deps
+# Development: runtime + dev deps
+RUN if [ "$INSTALL_DEV" = "true" ]; then \
+        echo "Installing with dev dependencies..." && \
+        uv sync --frozen --all-extras; \
+    else \
+        echo "Installing runtime dependencies only..." && \
+        uv sync --frozen; \
+    fi
 
 # Copy application code
 COPY app.py main.py ./

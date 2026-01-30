@@ -3,8 +3,14 @@
 import requests
 import json
 import time
+import os
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.getenv("API_URL", "http://localhost:8000")
+API_KEY = os.getenv("API_KEY", "your-secret-api-key-change-this-in-production")
+
+# Common headers for authenticated requests
+def get_headers():
+    return {"X-API-Key": API_KEY}
 
 def test_analyze_endpoint():
     """Test POST /analyze endpoint"""
@@ -17,7 +23,7 @@ def test_analyze_endpoint():
         "image_url": "https://example.com/test-image.jpg"
     }
     
-    response = requests.post(f"{BASE_URL}/analyze", json=payload)
+    response = requests.post(f"{BASE_URL}/analyze", json=payload, headers=get_headers())
     print(f"Status Code: {response.status_code}")
     print(f"Response: {json.dumps(response.json(), indent=2)}")
     
@@ -36,7 +42,7 @@ def test_job_status(job_id):
     print("=" * 50)
     
     # Check status immediately
-    response = requests.get(f"{BASE_URL}/analyze/{job_id}")
+    response = requests.get(f"{BASE_URL}/analyze/{job_id}", headers=get_headers())
     print(f"Status Code: {response.status_code}")
     print(f"Initial Status: {json.dumps(response.json(), indent=2)}")
     
@@ -45,7 +51,7 @@ def test_job_status(job_id):
     time.sleep(4)
     
     # Check status again
-    response = requests.get(f"{BASE_URL}/analyze/{job_id}")
+    response = requests.get(f"{BASE_URL}/analyze/{job_id}", headers=get_headers())
     print(f"\nFinal Status: {json.dumps(response.json(), indent=2)}")
     
     if response.json().get("status") == "completed":
@@ -62,7 +68,7 @@ def test_nonexistent_job():
     print("TEST 3: GET /analyze/invalid-job-id")
     print("=" * 50)
     
-    response = requests.get(f"{BASE_URL}/analyze/fake-job-123")
+    response = requests.get(f"{BASE_URL}/analyze/fake-job-123", headers=get_headers())
     print(f"Status Code: {response.status_code}")
     print(f"Response: {json.dumps(response.json(), indent=2)}")
     
@@ -88,7 +94,7 @@ def test_similarity_search():
         "top_k": 3
     }
     
-    response = requests.post(f"{BASE_URL}/sim-search", json=payload)
+    response = requests.post(f"{BASE_URL}/sim-search", json=payload, headers=get_headers())
     print(f"Status Code: {response.status_code}")
     print(f"Response (text query): {json.dumps(response.json(), indent=2)}")
     
@@ -106,7 +112,7 @@ def test_similarity_search():
         "top_k": 2
     }
     
-    response = requests.post(f"{BASE_URL}/sim-search", json=payload)
+    response = requests.post(f"{BASE_URL}/sim-search", json=payload, headers=get_headers())
     print(f"Response (image query): {json.dumps(response.json(), indent=2)}")
     
     if response.status_code == 200:
@@ -124,7 +130,7 @@ def test_similarity_search():
         "top_k": 5
     }
     
-    response = requests.post(f"{BASE_URL}/sim-search", json=payload)
+    response = requests.post(f"{BASE_URL}/sim-search", json=payload, headers=get_headers())
     print(f"Response (combined query): {json.dumps(response.json(), indent=2)}")
     
     if response.status_code == 200:
@@ -139,7 +145,7 @@ def test_similarity_search():
         "top_k": 3
     }
     
-    response = requests.post(f"{BASE_URL}/sim-search", json=payload)
+    response = requests.post(f"{BASE_URL}/sim-search", json=payload, headers=get_headers())
     print(f"Response (no query): {json.dumps(response.json(), indent=2)}")
     
     if response.status_code == 400:
@@ -165,7 +171,7 @@ def test_chat_endpoint():
         "message": "Hello, how are you?"
     }
     
-    response = requests.post(f"{BASE_URL}/chat", json=payload)
+    response = requests.post(f"{BASE_URL}/chat", json=payload, headers=get_headers())
     print(f"Status Code: {response.status_code}")
     print(f"Response (basic chat): {json.dumps(response.json(), indent=2)}")
     
@@ -182,7 +188,7 @@ def test_chat_endpoint():
         "message": "Can you search for sunset images?"
     }
     
-    response = requests.post(f"{BASE_URL}/chat", json=payload)
+    response = requests.post(f"{BASE_URL}/chat", json=payload, headers=get_headers())
     print(f"Response (search keyword): {json.dumps(response.json(), indent=2)}")
     
     if response.status_code == 200:
@@ -202,7 +208,7 @@ def test_chat_endpoint():
         "message": "Please analyze this photo for me"
     }
     
-    response = requests.post(f"{BASE_URL}/chat", json=payload)
+    response = requests.post(f"{BASE_URL}/chat", json=payload, headers=get_headers())
     print(f"Response (analyze keyword): {json.dumps(response.json(), indent=2)}")
     
     if response.status_code == 200:
@@ -226,7 +232,7 @@ def test_chat_endpoint():
         ]
     }
     
-    response = requests.post(f"{BASE_URL}/chat", json=payload)
+    response = requests.post(f"{BASE_URL}/chat", json=payload, headers=get_headers())
     print(f"Response (with history): {json.dumps(response.json(), indent=2)}")
     
     if response.status_code == 200:

@@ -7,6 +7,10 @@
 ```bash
 cd docker
 docker-compose up -d
+
+# Veya production build için (dev dependencies olmadan)
+docker-compose build --build-arg INSTALL_DEV=false
+docker-compose up -d
 ```
 
 Bu komut:
@@ -46,19 +50,40 @@ docker-compose down -v
 
 ### Environment Variables
 
-`.env` dosyası oluşturun (`.env.example` dosyasını kopyalayın):
-
-```bash
-cp .env.example .env
-```
-
-Sonra düzenleyin:
+Proje kök dizininde `.env` dosyası oluşturun:
 
 ```env
-REDIS_HOST=redis
+# Redis Configuration
+REDIS_HOST=localhost
 REDIS_PORT=6379
+REDIS_DB=0
+
+# Application Configuration
 LOG_LEVEL=INFO
+
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+
+# Security Configuration
+API_KEY=your-secret-api-key-change-this-in-production
+SOCKET_IO_SECRET=your-secret-socketio-token-change-this-in-production
+
+# Worker Configuration
+WORKER_RETRY_DELAY=1
+WORKER_MAX_RETRY_DELAY=30
+
+# TTL Configuration (seconds)
+JOB_QUEUED_TTL=86400
+JOB_COMPLETED_TTL=1800
+JOB_FAILED_TTL=1800
 ```
+
+> **⚠️ IMPORTANT:** Production ortamında `API_KEY` ve `SOCKET_IO_SECRET` değerlerini mutlaka değiştirin!
+
+### Docker Compose Configuration
+
+Docker Compose, yukarıdaki `.env` dosyasını otomatik olarak kullanır (`env_file` directive ile). `REDIS_HOST` Docker network için `redis` olarak override edilir.
 
 ### Worker Sayısını Değiştir
 
@@ -68,6 +93,21 @@ docker-compose up -d --scale worker=5
 
 # 1 worker'a düşür
 docker-compose up -d --scale worker=1
+```
+
+### Build Arguments
+
+Dockerfile `INSTALL_DEV` build argument'ini destekler:
+
+- **Development (default)**: `INSTALL_DEV=true` - Test dependencies dahil (pytest, httpx, vb.)
+- **Production**: `INSTALL_DEV=false` - Sadece runtime dependencies (daha küçük image)
+
+```bash
+# Development build (docker-compose default)
+docker-compose build  # INSTALL_DEV=true
+
+# Production build (manuel)
+docker build -t ai-service:prod --build-arg INSTALL_DEV=false -f docker/Dockerfile .
 ```
 
 ## 📦 Docker Commands
@@ -132,13 +172,18 @@ API çalıştıktan sonra:
 # Swagger UI
 open http://localhost:8000/docs
 
-# Health check
-curl http://localhost:8000/docs
+# Health check (authentication gerektirmez)
+curl http://localhost:8000/health
 
-# Test job oluştur
+# Test job oluştur (API Key gerekli)
 curl -X POST http://localhost:8000/analyze \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-api-key-change-this-in-production" \
   -d '{"post_id": "test123", "image_url": "https://example.com/image.jpg"}'
+
+# Job status kontrolü (API Key gerekli)
+curl -X GET http://localhost:8000/analyze/{job_id} \
+  -H "X-API-Key: your-secret-api-key-change-this-in-production"
 ```
 
 ## 🐛 Troubleshooting
@@ -195,54 +240,11 @@ docker-compose up -d --build
 
 ## 🚀 Production Deployment
 
-### Production ortamı için değişiklikler:
-
-**docker-compose.prod.yml:**
-
-```yaml
-version: '3.8'
-
-services:
-  redis:
-    image: redis:7-alpine
-    restart: always
-    volumes:
-      - redis_data:/data
-    # Port expose etme (güvenlik)
-    # ports kaldırıldı
-
-  api:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    command: uv run uvicorn app:combined_app --host 0.0.0.0 --port 8000 --workers 4
-    restart: always
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LOG_LEVEL=WARNING
-    # Hot reload volume'ünü kaldır
-    # volumes kaldırıldı
-
-  worker:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    command: uv run python -m src.workers.analyze_worker
-    restart: always
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LOG_LEVEL=WARNING
-    deploy:
-      replicas: 5  # Production'da daha fazla worker
-```
-
 **Kullanım:**
 
 ```bash
 cd docker
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.yml up -d --build
 ```
 
 ## 📊 Architecture
@@ -268,11 +270,42 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ## 🔐 Security Best Practices
 
-1. **Secrets Management**: Hassas bilgileri `.env` dosyasında tutun ve `.gitignore`'a ekleyin
-2. **Network Isolation**: Redis'i sadece internal network'te expose edin
-3. **Resource Limits**: Container'lara CPU/Memory limitleri ekleyin
-4. **Health Checks**: Tüm servislere health check ekleyin
-5. **Logging**: Centralized logging (ELK, Loki) kullanın
+### Authentication & Authorization
+
+1. **API Key Authentication**: 
+   - Tüm endpoint'ler (health hariç) `X-API-Key` header gerektir
+   - Backend servisi her istekte bu key'i göndermeli
+   - Production'da güçlü, unique key kullanın (min 32 karakter)
+
+2. **Socket.IO Authentication**:
+   - Socket.IO bağlantıları auth token gerektir
+   - Backend bağlanırken `auth={'token': 'YOUR_TOKEN'}` göndermeli
+   - Token, `SOCKET_IO_SECRET` ile eşleşmezse bağlantı reddedilir
+
+### Infrastructure Security
+
+3. **Secrets Management**: 
+   - Hassas bilgileri `.env` dosyasında tutun ve `.gitignore`'a ekleyin
+   - Production secret'ları asla commit etmeyin
+   - Secret rotation policy uygulayın
+
+4. **Network Isolation**: 
+   - Redis'i sadece internal network'te expose edin (dış port binding yok)
+   - API service'i gerektiğinde public expose edin
+   - Worker'lar internal-only tutun
+
+5. **Resource Limits**: 
+   - Container'lara CPU/Memory limitleri ekleyin
+   - OOM (Out of Memory) durumlarına karşı protect edin
+
+6. **Health Checks**: 
+   - Tüm servislere health check ekleyin
+   - Health endpoint authentication gerektirmez (monitoring için)
+
+7. **Logging & Monitoring**: 
+   - Centralized logging (ELK, Loki) kullanın
+   - Failed authentication denemelerini log'layın
+   - Rate limiting ekleyin
 
 ## 📝 Notes
 

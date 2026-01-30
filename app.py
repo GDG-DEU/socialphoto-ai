@@ -96,7 +96,7 @@ async def get_analyze_job_status(job_id: str, api_key: str = Depends(verify_api_
     }
 
 
-@app.post("/sim-search")
+@app.post("/sim-search", response_model=SimSearchResponse)
 async def similarity_search(req: SimSearchRequest, api_key: str = Depends(verify_api_key)):
     """Retrieves similar images based on a given text and/or image URL from Pinecone."""
     if req.query_text is None and req.image_url is None:
