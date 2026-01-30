@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from src.models.schemas import *
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 from src.services.health_service import health_service
+from src.services.auth_service import verify_api_key
 import json
 import logging
 import uuid
@@ -44,7 +45,7 @@ combined_app = notification_service.get_asgi_app(app)
 
 # This endpoint has been implemented for manual testing purposes. Originally, jobs are enqueued by backend service.
 @app.post("/analyze", response_model=AnalyzeJobResponse, status_code=202)
-async def analyze_image(req: AnalyzeRequest):
+async def analyze_image(req: AnalyzeRequest, api_key: str = Depends(verify_api_key)):
     try:
         job_id = str(uuid.uuid4())
         job_key = f"analyze_job:{job_id}"
@@ -71,7 +72,7 @@ async def analyze_image(req: AnalyzeRequest):
 
 
 @app.get("/analyze/{job_id}", response_model=AnalyzeJobStatusResponse)
-async def get_analyze_job_status(job_id: str):
+async def get_analyze_job_status(job_id: str, api_key: str = Depends(verify_api_key)):
     job_key = f"analyze_job:{job_id}"
     job_data = await redis_client.hgetall(job_key)
     if not job_data:
@@ -96,7 +97,7 @@ async def get_analyze_job_status(job_id: str):
 
 
 @app.post("/sim-search")
-async def similarity_search(req: SimSearchRequest):
+async def similarity_search(req: SimSearchRequest, api_key: str = Depends(verify_api_key)):
     """Retrieves similar images based on a given text and/or image URL from Pinecone."""
     if req.query_text is None and req.image_url is None:
         raise HTTPException(status_code=400, detail="At least one of query_text or image_url must be provided")
@@ -129,7 +130,7 @@ async def similarity_search(req: SimSearchRequest):
     
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(req: ChatRequest):
+async def chat_endpoint(req: ChatRequest, api_key: str = Depends(verify_api_key)):
     """Handles chat messages and generates responses with optional actions."""
     try:
         # --- FAKE CHAT RESPONSE ---

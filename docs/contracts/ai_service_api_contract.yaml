@@ -10,6 +10,9 @@ servers:
   - url: https://api.example.com
     description: Production
 
+security:
+  - ApiKeyAuth: []
+
 paths:
   /analyze:
     post:
@@ -17,6 +20,8 @@ paths:
       description: |
         Görsel analiz işlemini asenkron bir job olarak başlatır.
         İş Redis queue'ya alınır ve hemen bir job_id döndürülür.
+      security:
+        - ApiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -40,6 +45,8 @@ paths:
       summary: Görsel Analiz Job Durumu
       description: |
         Belirtilen job_id için analiz durumunu ve varsa sonucu döndürür.
+      security:
+        - ApiKeyAuth: []
       parameters:
         - name: job_id
           in: path
@@ -64,6 +71,8 @@ paths:
       description: |
         Metin sorgusunu vektöre çevirir ve vector database
         üzerinde en benzer sonuçları döndürür.
+      security:
+        - ApiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -88,6 +97,8 @@ paths:
       description: |
         Kullanıcıyla bağlam farkındalığı olan sohbet sağlar.
         Gerekirse ek aksiyonlar tetikleyebilir.
+      security:
+        - ApiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -129,6 +140,7 @@ paths:
     get:
       summary: Sistem Durumu
       description: Servisin ve modellerin ayakta olup olmadığını kontrol eder.
+      security: []
       responses:
         '200':
           description: Sistem durumu
@@ -296,3 +308,10 @@ components:
           type: array
           items:
             type: string
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication. Required for all endpoints except /health.
