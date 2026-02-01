@@ -89,3 +89,6 @@ coverage/
 
 # Notebooks
 *.ipynb_checkpoints/
+
+# Redis
+dump.rdb
