@@ -4,12 +4,15 @@ from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 from src.services.health_service import health_service
 from src.services.auth_service import verify_api_key
+from src.services.pinecone_service import pinecone_service
 import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
 
 
+load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -94,6 +97,55 @@ async def get_analyze_job_status(job_id: str, api_key: str = Depends(verify_api_
         "result": result,
         "error": error
     }
+
+
+@app.post("/upsert", response_model=UpsertResponse)
+async def upsert(req: UpsertRequest, api_key: str = Depends(verify_api_key)):
+    try:
+        # TODO: integrate with embedding model
+        # For now, we use a random vector or placeholder as we don't have the embedding model connected yet.
+        # This implementation assumes the structure is ready for when embeddings are available.
+        
+        # Placeholder vector (dimension needs to match index, e.g., 512, 1536)
+        # Using 512 as an example default
+        vector_dim = 512 
+        fake_vector = [0.1] * vector_dim
+        
+        vector_id = f"post:{req.post_id}"
+        metadata = {
+            "post_id": req.post_id,
+            "image_url": str(req.image_url)
+        }
+        
+        success = pinecone_service.upsert_vector(
+            vector_id=vector_id,
+            vector=fake_vector, 
+            metadata=metadata
+        )
+        
+        if success:
+            return UpsertResponse(status="success", vector_id=vector_id)
+        else:
+            raise HTTPException(status_code=500, detail="Failed to upsert to Pinecone")
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/delete-record", response_model=DeleteResponse)
+async def delete_record(req: DeleteRequest, api_key: str = Depends(verify_api_key)):
+    try:
+        vector_id = f"post:{req.post_id}"
+        
+        success = pinecone_service.delete_vector(vector_id=vector_id)
+        
+        if success:
+            return DeleteResponse(status="success", vector_id=vector_id)
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete from Pinecone")
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/sim-search", response_model=SimSearchResponse)

@@ -65,6 +65,52 @@ paths:
         '500':
           description: Sunucu hatası
 
+  /upsert:
+    post:
+      summary: Vektör Upsert
+      description: |
+        Yeni bir post görseli için vektör ve metadata kaydı oluşturur veya günceller.
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertRequest'
+      responses:
+        '200':
+          description: Başarılı kayıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpsertResponse'
+        '500':
+          description: Sunucu hatası
+
+  /delete-record:
+    post:
+      summary: Vektör Silme
+      description: |
+        Verilen post_id'ye ait vektör kaydını siler.
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteRequest'
+      responses:
+        '200':
+          description: Başarılı silme
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '500':
+          description: Sunucu hatası
+
   /sim-search:
     post:
       summary: Metin Tabanlı Benzerlik Araması
@@ -165,6 +211,44 @@ components:
           type: string
           format: uri
           description: Görselin URL adresi
+
+    UpsertRequest:
+      type: object
+      required:
+        - post_id
+        - image_url
+      properties:
+        post_id:
+          type: string
+        image_url:
+          type: string
+          format: uri
+
+    UpsertResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, failed]
+        vector_id:
+          type: string
+
+    DeleteRequest:
+      type: object
+      required:
+        - post_id
+      properties:
+        post_id:
+          type: string
+
+    DeleteResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, failed]
+        vector_id:
+          type: string
 
     AnalyzeJobResponse:
       type: object

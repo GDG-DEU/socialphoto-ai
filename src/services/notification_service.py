@@ -2,7 +2,10 @@ import socketio
 import logging
 import os
 from typing import Dict, Any, Union, List
+from dotenv import load_dotenv
 
+
+load_dotenv()
 logger = logging.getLogger(__name__)
 
 

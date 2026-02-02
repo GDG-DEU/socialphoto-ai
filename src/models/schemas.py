@@ -18,6 +18,25 @@ class AnalyzeJobStatusResponse(BaseModel):
     error: Optional[str] = None
 
 
+class UpsertRequest(BaseModel):
+    post_id: str
+    image_url: HttpUrl
+
+
+class UpsertResponse(BaseModel):
+    status: Literal["success", "failed"]
+    vector_id: str
+
+
+class DeleteRequest(BaseModel):
+    post_id: str
+
+
+class DeleteResponse(BaseModel):
+    status: Literal["success", "failed"]
+    vector_id: str
+
+
 class SimSearchRequest(BaseModel):
     query_text: Optional[str] = None
     image_url: Optional[HttpUrl] = None
