@@ -31,6 +31,10 @@ def client(mock_redis):
     
     with patch("src.services.redis_client.redis_client", mock_redis):
         from app import app
+        # Override auth dependency
+        from src.services.auth_service import verify_api_key
+        app.dependency_overrides[verify_api_key] = lambda: "fake-api-key"
+        
         with TestClient(app) as test_client:
             yield test_client
 
@@ -59,5 +63,9 @@ def client_with_job():
     
     with patch("src.services.redis_client.redis_client", redis_mock):
         from app import app
+        # Override auth dependency
+        from src.services.auth_service import verify_api_key
+        app.dependency_overrides[verify_api_key] = lambda: "fake-api-key"
+        
         with TestClient(app) as test_client:
             yield test_client
