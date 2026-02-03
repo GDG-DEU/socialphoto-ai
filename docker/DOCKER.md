@@ -4,14 +4,25 @@
 
 ### Tüm Servisleri Başlat (Tek Komut)
 
+**Önerilen Yöntem (Proje root dizininden):**
+
+```bash
+cd /path/to/SocialPhoto
+docker compose -f docker/docker-compose.yml --env-file .env up -d
+
+# Veya production build için (dev dependencies olmadan)
+docker compose -f docker/docker-compose.yml --env-file .env build --build-arg INSTALL_DEV=false
+docker compose -f docker/docker-compose.yml --env-file .env up -d
+```
+
+**Alternatif Yöntem (Docker dizininden, şifre kullanmıyorsanız):**
+
 ```bash
 cd docker
 docker-compose up -d
-
-# Veya production build için (dev dependencies olmadan)
-docker-compose build --build-arg INSTALL_DEV=false
-docker-compose up -d
 ```
+
+> **⚠️ NOT:** Redis'i şifre ile kullanıyorsanız (önerilir), mutlaka proje root dizininden `--env-file .env` parametresi ile çalıştırmalısınız.
 
 Bu komut:
 - ✅ Redis container'ı başlatır
@@ -54,6 +65,7 @@ Proje kök dizininde `.env` dosyası oluşturun:
 
 ```env
 # Redis Configuration
+REDIS_PASSWORD=your_secure_password_here
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
@@ -202,11 +214,33 @@ docker-compose exec api bash
 
 ```bash
 # Redis health check
-docker-compose exec redis redis-cli ping
+docker-compose exec redis redis-cli -a your_password ping
 
 # Redis loglarını kontrol et
 docker-compose logs redis
 ```
+
+**Redis ile şifre kullanırken:**
+
+Eğer Redis'i şifre ile çalıştırıyorsanız, `.env` dosyanızda `REDIS_PASSWORD` tanımlamalısınız. Redis container'ı başlatırken parent dizinden docker-compose çalıştırın:
+
+```bash
+# Redis'i şifre ile başlatma (proje root dizininden)
+cd /home/bahak/ws/SocialPhoto
+docker compose -f docker/docker-compose.yml --env-file .env up redis -d
+
+# Tüm servisleri başlatma
+docker compose -f docker/docker-compose.yml --env-file .env up -d
+
+# Redis bağlantısını test etme
+docker exec ai-service-redis redis-cli -a your_password ping
+# Beklenen çıktı: PONG
+
+# Servisleri durdurma
+docker compose -f docker/docker-compose.yml --env-file .env down
+```
+
+**ÖNEMLİ:** Docker dizininden (`cd docker`) çalıştırırsanız, `.env` dosyası bulunamaz ve `REDIS_PASSWORD` değişkeni boş kalır. Mutlaka proje root dizininden `--env-file .env` parametresi ile çalıştırın.
 
 ### Port zaten kullanımda
 
