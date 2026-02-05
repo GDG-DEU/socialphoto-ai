@@ -10,6 +10,15 @@ import logging
 import uuid
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+from typing import Optional
+from pydantic import BaseModel
+from src.services.sim_search.sim_search_service import sim_search_service
+from src.services.sim_search.sim_search_service import (
+    sim_search_service,
+    SimSearchRequest,
+)
+
+
 
 
 load_dotenv()
@@ -24,7 +33,7 @@ async def lifespan(app: FastAPI):
         logger.info("Redis connected successfully")
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
-        raise
+        #raise
     
     # Register health checks
     health_service.register("redis", redis_client.ping)
@@ -72,6 +81,20 @@ async def analyze_image(req: AnalyzeRequest, api_key: str = Depends(verify_api_k
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+@app.post("/sim-search")
+async def sim_search(
+    req: SimSearchRequest,
+    api_key: str = Depends(verify_api_key),
+):
+    try:
+        result = sim_search_service.run(req)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 @app.get("/analyze/{job_id}", response_model=AnalyzeJobStatusResponse)
@@ -158,24 +181,14 @@ async def similarity_search(req: SimSearchRequest, api_key: str = Depends(verify
         # --- FAKE SIMILARITY SEARCH ---
         logger.info("--- FAKE SIMILARITY SEARCH ---")
         logger.info(f"Received sim search request: {req.model_dump()}")
-
-        # Fake results
-        results = [
-            {
-                "image_url": "https://example.com/image1.jpg",
-                "sim_score": 0.95
-            },
-            {
-                "image_url": "https://example.com/image2.jpg",
-                "sim_score": 0.93
-            },
-            {
-                "image_url": "https://example.com/image3.jpg",
-                "sim_score": 0.91
-            }
-        ][:req.top_k]
-
+        results = await sim_search_service.search(
+            query_text=req.query_text,
+            image_url=req.image_url,
+            w=req.w,
+            top_k=req.top_k,
+        )
         return {"results": results}
+
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

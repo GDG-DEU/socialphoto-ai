@@ -10,7 +10,9 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
 
+
 async def verify_api_key(x_api_key: str = Header(..., description="API Key for authentication")):
+   
     """
     Dependency function to verify API key from X-API-Key header.
     
