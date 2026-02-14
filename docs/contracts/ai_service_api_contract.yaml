@@ -212,7 +212,7 @@ components:
           format: uri
           description: Görselin URL adresi
 
-    UpsertRequest:
+    UpsertItem:
       type: object
       required:
         - post_id
@@ -224,14 +224,24 @@ components:
           type: string
           format: uri
 
+    UpsertRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpsertItem'
+
     UpsertResponse:
       type: object
       properties:
         status:
           type: string
           enum: [success, failed]
-        vector_id:
-          type: string
+        count:
+          type: integer
 
     DeleteRequest:
       type: object

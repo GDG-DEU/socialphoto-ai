@@ -18,14 +18,18 @@ class AnalyzeJobStatusResponse(BaseModel):
     error: Optional[str] = None
 
 
-class UpsertRequest(BaseModel):
+
+class UpsertItem(BaseModel):
     post_id: str
     image_url: HttpUrl
+
+class UpsertRequest(BaseModel):
+    items: list[UpsertItem]
 
 
 class UpsertResponse(BaseModel):
     status: Literal["success", "failed"]
-    vector_id: str
+    count: int
 
 
 class DeleteRequest(BaseModel):

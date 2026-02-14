@@ -132,22 +132,20 @@ async def upsert(req: UpsertRequest, api_key: str = Depends(verify_api_key)):
         # Placeholder vector (dimension needs to match index, e.g., 512, 1536)
         # Using 512 as an example default
         vector_dim = 512 
-        fake_vector = [0.1] * vector_dim
-        
-        vector_id = f"post:{req.post_id}"
-        metadata = {
-            "post_id": req.post_id,
-            "image_url": str(req.image_url)
-        }
-        
-        success = pinecone_service.upsert_vector(
-            vector_id=vector_id,
-            vector=fake_vector, 
-            metadata=metadata
-        )
+        vectors = []
+        for item in req.items:
+            fake_vector = [0.1] * vector_dim
+            vector_id = f"post:{item.post_id}"
+            metadata = {
+                "post_id": item.post_id,
+                "image_url": str(item.image_url)
+            }
+            vectors.append((vector_id, fake_vector, metadata))
+            
+        success = pinecone_service.upsert_vectors(vectors=vectors)
         
         if success:
-            return UpsertResponse(status="success", vector_id=vector_id)
+            return UpsertResponse(status="success", count=len(req.items))
         else:
             raise HTTPException(status_code=500, detail="Failed to upsert to Pinecone")
         
