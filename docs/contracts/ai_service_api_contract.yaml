@@ -162,24 +162,27 @@ paths:
         '500':
           description: Sunucu hatası
 
-  /safety-check:
+  /nsfw-check:
     post:
-      summary: Güvenlik Kontrolü
+      summary: NSFW İçerik Kontrolü
       description: |
-        Görsel üzerinde NSFW veya zararlı içerik tespiti yapar.
+        Görsel üzerinde NSFW içerik tespiti yapar ve güven skoru döndürür.
+        Skor 0.0 (güvenli) ile 1.0 (NSFW) arasında bir değerdir.
+      security:
+        - ApiKeyAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SafetyCheckRequest'
+              $ref: '#/components/schemas/NSFWCheckRequest'
       responses:
         '200':
-          description: Güvenlik kontrolü sonucu
+          description: NSFW kontrolü sonucu
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SafetyCheckResponse'
+                $ref: '#/components/schemas/NSFWCheckResponse'
         '500':
           description: Sunucu hatası
 
@@ -369,7 +372,7 @@ components:
             query: "sunset beach"
             top_k: 10
 
-    SafetyCheckRequest:
+    NSFWCheckRequest:
       type: object
       required:
         - image_url
@@ -377,19 +380,18 @@ components:
         image_url:
           type: string
           format: uri
+          description: Kontrol edilecek görselin URL'si
 
-    SafetyCheckResponse:
+    NSFWCheckResponse:
       type: object
       properties:
-        is_safe:
-          type: boolean
-        reason:
-          type: string
-          example: violence
-        confidence:
+        conf_score:
           type: number
           format: float
-          example: 0.99
+          minimum: 0.0
+          maximum: 1.0
+          description: NSFW güven skoru (0.0 = güvenli, 1.0 = NSFW)
+          example: 0.15
 
     HealthResponse:
       type: object

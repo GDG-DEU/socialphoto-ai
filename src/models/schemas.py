@@ -17,7 +17,7 @@ class AnalyzeJobStatusResponse(BaseModel):
     result: Optional[dict] = None
     error: Optional[str] = None
 
-
+# -------------------------------------------------------------------
 
 class UpsertItem(BaseModel):
     post_id: str
@@ -31,6 +31,7 @@ class UpsertResponse(BaseModel):
     status: Literal["success", "failed"]
     count: int
 
+# -------------------------------------------------------------------
 
 class DeleteRequest(BaseModel):
     post_id: str
@@ -40,6 +41,7 @@ class DeleteResponse(BaseModel):
     status: Literal["success", "failed"]
     vector_id: str
 
+# -------------------------------------------------------------------
 
 class SimSearchRequest(BaseModel):
     query_text: Optional[str] = None
@@ -50,6 +52,7 @@ class SimSearchRequest(BaseModel):
 class SimSearchResponse(BaseModel):
     results: list[dict]
 
+# -------------------------------------------------------------------
 
 class ChatRequest(BaseModel):
     user_id: str
@@ -66,7 +69,17 @@ class ChatResponse(BaseModel):
     reply: str
     actions: Optional[list[Action]] = None
 
+# -------------------------------------------------------------------
 
 class HealthResponse(BaseModel):
     status: str
     models_loaded: list[str]
+
+# -------------------------------------------------------------------
+
+class NSFWCheckRequest(BaseModel):
+    image_url: HttpUrl
+
+
+class NSFWCheckResponse(BaseModel):
+    conf_score: float

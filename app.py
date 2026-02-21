@@ -216,6 +216,23 @@ async def chat_endpoint(req: ChatRequest, api_key: str = Depends(verify_api_key)
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/nsfw-check", response_model=NSFWCheckResponse)
+async def nsfw_check(req: NSFWCheckRequest, api_key: str = Depends(verify_api_key)):
+    """Checks if an image contains NSFW content and returns confidence score."""
+    try:
+        logger.info(f"Received NSFW check request for image: {req.image_url}")
+        
+        # TODO: Implement actual NSFW detection model
+        # For now, return a placeholder confidence score
+        # conf_score range: 0.0 (safe) to 1.0 (NSFW)
+        placeholder_score = 0.15
+        
+        return NSFWCheckResponse(conf_score=placeholder_score)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Returns the health status of the service and loaded models."""
