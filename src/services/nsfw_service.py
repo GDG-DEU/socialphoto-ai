@@ -4,18 +4,24 @@ import io
 
 class NSFWService:
     def __init__(self):
+        # Model ve pipeline kurulumu
         self.model_id = "AdamCodd/vit-base-nsfw-detector"
         self.classifier = pipeline("image-classification", model=self.model_id)
 
     def predict(self, image_bytes):
-        img = Image.open(io.BytesIO(image_bytes))
-        results = self.classifier(img)
+        try:
+            # Byte verisini görsel nesnesine çevir
+            img = Image.open(io.BytesIO(image_bytes))
 
-        formatted_results = {res['label']: res['score'] for res in results}
+            # Kanal uyumsuzluklarını önlemek için RGB'ye zorla
+            if img.mode != "RGB":
+                img = img.convert("RGB")
 
-        is_nsfw = formatted_results.get('nsfw', 0) > 0.7
+            # Sınıflandırma yap
+            results = self.classifier(img)
 
-        return {
-            "is_nsfw": is_nsfw,
-            "scores": formatted_results
-        }
+            # Sadece {'label': score} sözlüğünü dön
+            return {res['label']: res['score'] for res in results}
+
+        except Exception as e:
+            return {"error": str(e)}
