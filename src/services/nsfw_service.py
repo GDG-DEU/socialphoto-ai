@@ -7,7 +7,19 @@ class NSFWService:
         # Model ve pipeline kurulumu
         self.model_id = "AdamCodd/vit-base-nsfw-detector"
         self.classifier = pipeline("image-classification", model=self.model_id)
+self.device = 0 if torch.cuda.is_available() else -1
 
+try:
+        logger.info(f"Model is being loaded: {self.model_id} (Device: {'GPU' if self.device == 0 else 'CPU'})")
+        self.classifier = pipeline(
+            "image-classification", 
+            model=self.model_id, 
+            device=self.device
+        )
+        logger.info("Model has been loaded successfully.")
+except Exception as e:
+        logger.error(f"Model loading error: {e}")
+        raise
     def predict(self, image_bytes):
         try:
             # Byte verisini görsel nesnesine çevir
