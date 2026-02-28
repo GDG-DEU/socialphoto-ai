@@ -15,7 +15,7 @@ async def send_test_job():
         "status": "pending"
     })
 
-    await redis_client.lpush("analyze_queue", job_id)
+    await redis_client.rpush("analyze_queue", job_id)
 
     print(f" [OK] İş nsfw_job prefixiyle kuyruğa gönderildi! Job ID: {job_id}")
     await redis_client.aclose()
