@@ -6,6 +6,7 @@ from redis.asyncio import ConnectionError
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 from src.services.nsfw_service import NSFWService
+from src.utils.image_fetcher import fetch_cloudinary_image
 
 nsfw_service = NSFWService()
 
@@ -23,13 +24,13 @@ def signal_handler(sig, frame):
     shutdown_event.set()
 
 async def run_worker():
-    logger.info("NSFW Analyze worker started, waiting for jobs in 'analyze_queue'...")
+    logger.info("NSFW Analyze worker started, waiting for jobs in 'nsfw_queue'...")
     retry_delay = 1
     max_retry_delay = 30
 
     while not shutdown_event.is_set():
         try:
-            result = await redis_client.blpop("analyze_queue", timeout=1)
+            result = await redis_client.blpop("nsfw_queue", timeout=1)
             if result is None:
                 continue
 
@@ -40,18 +41,16 @@ async def run_worker():
             await redis_client.hset(job_key, "status", "processing")
 
             try:
-                image_path = await redis_client.hget(job_key, "file_path")
+                cloudinary_public_id = await redis_client.hget(job_key, "cloudinary_public_id")
 
-                if not image_path:
-                    raise Exception(f"Job {job_id} için file_path bulunamadı!")
+                if not cloudinary_public_id:
+                    raise Exception(f"Job {job_id} için cloudinary_public_id bulunamadı!")
 
                 # --- AI ANALİZİ ---
-                logger.info(f"Processing Job {job_id}: Analyzing file {image_path}")
+                logger.info(f"Processing Job {job_id}: Analyzing file {cloudinary_public_id}")
 
-                with open(image_path, "rb") as f:
-                    image_bytes = f.read()
-
-                analysis_result = nsfw_service.predict(image_bytes)
+                image = await fetch_cloudinary_image(str(cloudinary_public_id))
+                analysis_result = await nsfw_service.predict_async(image)
                 nsfw_score = analysis_result.get("nsfw", 0)
 
                 # 1. Redis durumunu güncelle
@@ -59,7 +58,7 @@ async def run_worker():
                     job_key,
                     mapping={
                         "status": "completed",
-                        "nsfw_score": str(round(nsfw_score, 4))
+                        "nsfw_score": float(nsfw_score)
                     }
                 )
 
@@ -68,7 +67,7 @@ async def run_worker():
                     "job_id": job_id,
                     "status": "completed",
                     "nsfw_score": nsfw_score,
-                    "file_path": image_path
+                    "cloudinary_public_id": cloudinary_public_id
                 })
 
                 # 3. Temizlik ve Log

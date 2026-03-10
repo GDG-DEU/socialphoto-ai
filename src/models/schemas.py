@@ -1,9 +1,9 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 from typing import Literal, Optional
 
 class AnalyzeRequest(BaseModel):
     post_id: str
-    image_url: HttpUrl
+    cloudinary_public_id: str
 
 
 class AnalyzeJobResponse(BaseModel):
@@ -21,7 +21,7 @@ class AnalyzeJobStatusResponse(BaseModel):
 
 class UpsertItem(BaseModel):
     post_id: str
-    image_url: HttpUrl
+    cloudinary_public_id: str
 
 class UpsertRequest(BaseModel):
     items: list[UpsertItem]
@@ -45,7 +45,7 @@ class DeleteResponse(BaseModel):
 
 class SimSearchRequest(BaseModel):
     query_text: Optional[str] = None
-    image_url: Optional[HttpUrl] = None
+    cloudinary_public_id: Optional[str] = None
     top_k: int = 5
 
 
@@ -78,8 +78,9 @@ class HealthResponse(BaseModel):
 # -------------------------------------------------------------------
 
 class NSFWCheckRequest(BaseModel):
-    image_url: HttpUrl
+    cloudinary_public_id: str
 
 
 class NSFWCheckResponse(BaseModel):
-    conf_score: float
+    job_id: str
+    status: Literal["queued"]

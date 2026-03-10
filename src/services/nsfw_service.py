@@ -1,3 +1,4 @@
+import asyncio
 import io
 import torch
 import logging
@@ -24,20 +25,22 @@ class NSFWService:
             logger.error(f"Model loading error: {e}")
             raise
 
-    def predict(self, image_bytes):
+    def predict(self, image: Image.Image) -> dict:
         """
         Görüntüyü analiz eder ve ham skorları döner.
         """
         try:
-            img = Image.open(io.BytesIO(image_bytes))
+            if image.mode != "RGB":
+                image = image.convert("RGB")
 
-            if img.mode != "RGB":
-                img = img.convert("RGB")
-
-            results = self.classifier(img)
+            results = self.classifier(image)
 
             return {res['label']: res['score'] for res in results}
 
         except Exception as e:
             logger.error(f"Prediction error: {e}")
             return {"error": str(e)}
+
+    async def predict_async(self, image: Image.Image) -> dict:
+        """Runs predict() in a thread pool so the event loop is not blocked."""
+        return await asyncio.to_thread(self.predict, image)

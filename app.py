@@ -68,7 +68,7 @@ async def analyze_image(req: AnalyzeRequest, api_key: str = Depends(verify_api_k
             mapping={
                 "job_id": job_id,
                 "post_id": req.post_id,
-                "image_url": str(req.image_url),
+                "cloudinary_public_id": req.cloudinary_public_id,
                 "status": "queued"
             }
         )
@@ -138,7 +138,7 @@ async def upsert(req: UpsertRequest, api_key: str = Depends(verify_api_key)):
             vector_id = f"post:{item.post_id}"
             metadata = {
                 "post_id": item.post_id,
-                "image_url": str(item.image_url)
+                "cloudinary_public_id": item.cloudinary_public_id
             }
             vectors.append((vector_id, fake_vector, metadata))
             
@@ -172,8 +172,8 @@ async def delete_record(req: DeleteRequest, api_key: str = Depends(verify_api_ke
 @app.post("/sim-search", response_model=SimSearchResponse)
 async def similarity_search(req: SimSearchRequest, api_key: str = Depends(verify_api_key)):
     """Retrieves similar images based on a given text and/or image URL from Pinecone."""
-    if req.query_text is None and req.image_url is None:
-        raise HTTPException(status_code=400, detail="At least one of query_text or image_url must be provided")
+    if req.query_text is None and req.cloudinary_public_id is None:
+        raise HTTPException(status_code=400, detail="At least one of query_text or cloudinary_public_id must be provided")
 
     try:
         # --- FAKE SIMILARITY SEARCH ---
@@ -181,7 +181,7 @@ async def similarity_search(req: SimSearchRequest, api_key: str = Depends(verify
         logger.info(f"Received sim search request: {req.model_dump()}")
         results = await sim_search_service.search(
             query_text=req.query_text,
-            image_url=req.image_url,
+            cloudinary_public_id=req.cloudinary_public_id,
             w=req.w,
             top_k=req.top_k,
         )
@@ -220,14 +220,30 @@ async def chat_endpoint(req: ChatRequest, api_key: str = Depends(verify_api_key)
 async def nsfw_check(req: NSFWCheckRequest, api_key: str = Depends(verify_api_key)):
     """Checks if an image contains NSFW content and returns confidence score."""
     try:
-        logger.info(f"Received NSFW check request for image: {req.image_url}")
+        logger.info(f"Received NSFW check request for image: {req.cloudinary_public_id}")
         
         # TODO: Implement actual NSFW detection model
         # For now, return a placeholder confidence score
         # conf_score range: 0.0 (safe) to 1.0 (NSFW)
-        placeholder_score = 0.15
         
-        return NSFWCheckResponse(conf_score=placeholder_score)
+        job_id = str(uuid.uuid4())
+        job_key = f"nsfw_job:{job_id}"
+
+        # job metadata
+        await redis_client.hset(
+            job_key,
+            mapping={
+                "job_id": job_id,
+                "cloudinary_public_id": req.cloudinary_public_id,
+                "status": "queued"
+            }
+        )
+        await redis_client.expire(job_key, 86400)  # 24 saatlik TTL
+
+        # enqueue job to nsfw_queue list
+        await redis_client.rpush("nsfw_queue", job_id)
+
+        return {"job_id": job_id, "status": "queued"}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
