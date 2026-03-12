@@ -65,13 +65,59 @@ paths:
         '500':
           description: Sunucu hatası
 
+  /upsert:
+    post:
+      summary: Vektör Upsert
+      description: |
+        Yeni bir post görseli için vektör ve metadata kaydı oluşturur veya günceller.
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertRequest'
+      responses:
+        '200':
+          description: Başarılı kayıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpsertResponse'
+        '500':
+          description: Sunucu hatası
+
+  /delete-record:
+    post:
+      summary: Vektör Silme
+      description: |
+        Verilen post_id'ye ait vektör kaydını siler.
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteRequest'
+      responses:
+        '200':
+          description: Başarılı silme
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '500':
+          description: Sunucu hatası
+
   /sim-search:
     post:
       summary: Metin Tabanlı Benzerlik Araması
       description: |
-        Metin sorgusunu vektöre çevirir ve vector database
+        Metin ve/veya görsel sorgusunu vektöre çevirir ve vector database
         üzerinde en benzer sonuçları döndürür.
-        En az bir tanesi (query_text veya image_url) sağlanmalıdır.
+        En az bir tanesi (query_text veya cloudinary_public_id) sağlanmalıdır.
       security:
         - ApiKeyAuth: []
       requestBody:
@@ -116,24 +162,28 @@ paths:
         '500':
           description: Sunucu hatası
 
-  /safety-check:
+  /nsfw-check:
     post:
-      summary: Güvenlik Kontrolü
+      summary: NSFW İçerik Kontrolü (Async Job)
       description: |
-        Görsel üzerinde NSFW veya zararlı içerik tespiti yapar.
+        NSFW içerik tespitini asenkron bir job olarak başlatır.
+        İş Redis queue'ya alınır ve hemen bir job_id döndürülür.
+        Sonuç Socket.IO bildirimi ile iletilir.
+      security:
+        - ApiKeyAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SafetyCheckRequest'
+              $ref: '#/components/schemas/NSFWCheckRequest'
       responses:
         '200':
-          description: Güvenlik kontrolü sonucu
+          description: NSFW kontrolü sonucu
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SafetyCheckResponse'
+                $ref: '#/components/schemas/NSFWCheckResponse'
         '500':
           description: Sunucu hatası
 
@@ -156,15 +206,62 @@ components:
       type: object
       required:
         - post_id
-        - image_url
+        - cloudinary_public_id
       properties:
         post_id:
           type: string
           description: Analiz edilecek postun ID'si
-        image_url:
+        cloudinary_public_id:
           type: string
-          format: uri
-          description: Görselin URL adresi
+          description: Cloudinary'deki görselin public ID'si (örn. "photos/cld-sample-5")
+
+    UpsertItem:
+      type: object
+      required:
+        - post_id
+        - cloudinary_public_id
+      properties:
+        post_id:
+          type: string
+        cloudinary_public_id:
+          type: string
+          description: Cloudinary'deki görselin public ID'si
+
+    UpsertRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpsertItem'
+
+    UpsertResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, failed]
+        count:
+          type: integer
+
+    DeleteRequest:
+      type: object
+      required:
+        - post_id
+      properties:
+        post_id:
+          type: string
+
+    DeleteResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, failed]
+        vector_id:
+          type: string
 
     AnalyzeJobResponse:
       type: object
@@ -201,20 +298,19 @@ components:
       type: object
       oneOf:
         - required: [query_text]
-        - required: [image_url]
+        - required: [cloudinary_public_id]
       properties:
         query_text:
           type: string
-          description: Text query for similarity search (at least one of query_text or image_url must be provided)
-        image_url:
+          description: Benzerlik araması için metin sorgusu (query_text veya cloudinary_public_id'den en az biri zorunlu)
+        cloudinary_public_id:
           type: string
-          format: uri
-          description: Image URL for similarity search (at least one of query_text or image_url must be provided)
+          description: Benzerlik araması için Cloudinary görsel public ID'si (query_text veya cloudinary_public_id'den en az biri zorunlu)
         top_k:
           type: integer
           minimum: 1
           default: 5
-          description: Number of results to return
+          description: Döndürülecek sonuç sayısı
 
     SimSearchResponse:
       type: object
@@ -275,27 +371,25 @@ components:
             query: "sunset beach"
             top_k: 10
 
-    SafetyCheckRequest:
+    NSFWCheckRequest:
       type: object
       required:
-        - image_url
+        - cloudinary_public_id
       properties:
-        image_url:
+        cloudinary_public_id:
           type: string
-          format: uri
+          description: Kontrol edilecek görselin Cloudinary public ID'si
 
-    SafetyCheckResponse:
+    NSFWCheckResponse:
       type: object
       properties:
-        is_safe:
-          type: boolean
-        reason:
+        job_id:
           type: string
-          example: violence
-        confidence:
-          type: number
-          format: float
-          example: 0.99
+          description: Oluşturulan job ID
+        status:
+          type: string
+          enum: [queued]
+          example: queued
 
     HealthResponse:
       type: object

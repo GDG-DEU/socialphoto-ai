@@ -1,0 +1,91 @@
+erDiagram
+    USER ||--o{ POST : "creates"
+    USER ||--o{ LIKE : "gives"
+    POST ||--o{ LIKE : "receives"
+    USER ||--o{ FOLLOW : "follower"
+    USER ||--o{ FOLLOW : "following"
+    USER ||--o{ NOTIFICATION : "receives"
+    USER ||--o{ AI_CHAT_HISTORY : "converses"
+    USER ||--|| PROFILE : "has"
+    POST ||--o{ POST_TAGS : "tagged with"
+    TAGS ||--o{ POST_TAGS : "categorizes"
+    POST ||--o{ PHOTO : "has"
+    
+    USER {
+        uuid id PK
+        string username "unique"
+        string email "unique"
+        string password_hash
+        enum type "USER, ADMIN"
+    }
+
+    PROFILE {
+        uuid id PK
+        uuid user_id FK "unique"
+        string avatar_url
+        string full_name
+        string location
+        text bio
+        string photo_style
+        string camera_gear
+        float avg_score "avg aesthetic score"
+        jsonb social_links
+        %% additional profile fields if needed
+    }
+
+    POST {
+        uuid id PK
+        uuid user_id FK
+        text description
+        enum status "PENDING, PROCESSED, FAILED"
+        datetime created_at
+    }
+
+    PHOTO {
+        uuid id PK
+        uuid post_id FK
+        string image_url
+        float aesthetic_score
+        string vector_id "Pinecone id"
+    }
+
+    TAGS {
+        uuid id PK
+        string name "unique"
+    }
+
+    POST_TAGS {
+        uuid post_id PK, FK
+        uuid tag_id PK, FK
+    }
+
+    AI_CHAT_HISTORY {
+        uuid id PK
+        uuid session_id "Not Null, indexed"
+        uuid user_id FK
+        enum role "SYSTEM, USER, ASSISTANT, TOOL"
+        text content
+        text tool_call_id "For TOOL role only"
+        jsonb tool_calls "For ASSISTANT role only"
+        datetime created_at "default: now()"
+    }
+
+    NOTIFICATION {
+        uuid id PK
+        uuid user_id FK
+        string type "LIKE, FOLLOW, AI_COMPLETE"
+        text content
+        boolean is_read "default: false"
+        string target_id "Post or User ID"
+        datetime created_at
+    }
+
+    LIKE {
+        uuid user_id PK, FK
+        uuid post_id PK, FK
+    }
+
+    FOLLOW {
+        uuid follower_id PK, FK
+        uuid following_id PK, FK
+    }

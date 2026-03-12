@@ -1,5 +1,6 @@
 """Unit tests for API endpoints using pytest and TestClient."""
 import pytest
+from unittest.mock import MagicMock, patch
 
 
 class TestAnalyzeEndpoint:
@@ -184,3 +185,94 @@ class TestHealthEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert "redis" in data["models_loaded"]
+
+
+class TestPineconeEndpoints:
+    """Tests for Pinecone endpoints /upsert and /delete-record."""
+    
+    def test_upsert_endpoint_success(self, client):
+        """Should upsert vectors and return success."""
+        
+        with patch("app.pinecone_service") as mock_pinecone_service:
+            # Setup mock
+            mock_pinecone_service.upsert_vectors.return_value = True
+            
+            payload = {
+                "items": [
+                    {
+                        "post_id": "p123",
+                        "image_url": "http://example.com/img.jpg"
+                    },
+                    {
+                        "post_id": "p124",
+                        "image_url": "http://example.com/img2.jpg"
+                    }
+                ]
+            }
+            
+            response = client.post("/upsert", json=payload)
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "success"
+            assert data["count"] == 2
+            
+            mock_pinecone_service.upsert_vectors.assert_called_once()
+            call_kwargs = mock_pinecone_service.upsert_vectors.call_args.kwargs
+            assert len(call_kwargs["vectors"]) == 2
+            assert call_kwargs["vectors"][0][0] == "post:p123"
+            assert call_kwargs["vectors"][1][0] == "post:p124"
+
+    def test_upsert_endpoint_failure(self, client):
+        """Should return 500 on upsert failure."""
+        
+        with patch("app.pinecone_service") as mock_pinecone_service:
+            mock_pinecone_service.upsert_vectors.return_value = False
+            
+            payload = {
+                "items": [
+                    {
+                        "post_id": "p123",
+                        "image_url": "http://example.com/img.jpg"
+                    }
+                ]
+            }
+            
+            response = client.post("/upsert", json=payload)
+            
+            assert response.status_code == 500
+            assert "Failed to upsert" in response.json()["detail"]
+
+    def test_delete_endpoint_success(self, client):
+        """Should delete vector and return success."""
+        
+        with patch("app.pinecone_service") as mock_pinecone_service:
+            mock_pinecone_service.delete_vector.return_value = True
+            
+            payload = {
+                "post_id": "p123"
+            }
+            
+            response = client.post("/delete-record", json=payload)
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "success"
+            assert data["vector_id"] == "post:p123"
+            
+            mock_pinecone_service.delete_vector.assert_called_once_with(vector_id="post:p123")
+
+    def test_delete_endpoint_failure(self, client):
+        """Should return 500 on delete failure."""
+        
+        with patch("app.pinecone_service") as mock_pinecone_service:
+            mock_pinecone_service.delete_vector.return_value = False
+            
+            payload = {
+                "post_id": "p123"
+            }
+            
+            response = client.post("/delete-record", json=payload)
+            
+            assert response.status_code == 500
+            assert "Failed to delete" in response.json()["detail"]
