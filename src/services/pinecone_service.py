@@ -33,20 +33,27 @@ class PineconeService:
         else:
             logger.warning("PINECONE_API_KEY not set")
 
-    def upsert_vector(self, vector_id: str, vector: List[float], metadata: Optional[Dict[str, Any]] = None) -> bool:
-        """
-        Upserts a vector to Pinecone.
+    def upsert_vectors(self, vectors: List[tuple]) -> bool:
+        """Upserts vectors to Pinecone.
+
+        Args:
+            vectors: List of tuples containing (vector_id, vector, metadata).  
+                vector_id: str - Unique identifier for the vector: .  
+                vector: List[float] - List of floats representing the vector: .  
+                metadata: Optional[Dict[str, Any]] - Optional metadata dictionary.  
+
+        Returns:
+            bool: True if upsert succeeds, False otherwise.
         """
         if not self.index:
             logger.error("Pinecone index not initialized")
             return False
             
         try:
-            upsert_data = [(vector_id, vector, metadata or {})]
-            self.index.upsert(vectors=upsert_data)
+            self.index.upsert(vectors=vectors)
             return True
         except Exception as e:
-            logger.error(f"Failed to upsert vector {vector_id}: {e}")
+            logger.error(f"Failed to upsert vectors: {e}")
             return False
 
     def delete_vector(self, vector_id: str) -> bool:

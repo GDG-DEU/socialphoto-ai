@@ -10,6 +10,15 @@ import logging
 import uuid
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+from typing import Optional
+from pydantic import BaseModel
+from src.services.sim_search.sim_search_service import sim_search_service
+from src.services.sim_search.sim_search_service import (
+    sim_search_service,
+    SimSearchRequest,
+)
+
+
 
 
 load_dotenv()
@@ -24,7 +33,7 @@ async def lifespan(app: FastAPI):
         logger.info("Redis connected successfully")
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
-        raise
+        #raise
     
     # Register health checks
     health_service.register("redis", redis_client.ping)
@@ -59,7 +68,7 @@ async def analyze_image(req: AnalyzeRequest, api_key: str = Depends(verify_api_k
             mapping={
                 "job_id": job_id,
                 "post_id": req.post_id,
-                "image_url": str(req.image_url),
+                "cloudinary_public_id": req.cloudinary_public_id,
                 "status": "queued"
             }
         )
@@ -72,6 +81,20 @@ async def analyze_image(req: AnalyzeRequest, api_key: str = Depends(verify_api_k
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+@app.post("/sim-search")
+async def sim_search(
+    req: SimSearchRequest,
+    api_key: str = Depends(verify_api_key),
+):
+    try:
+        result = sim_search_service.run(req)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 @app.get("/analyze/{job_id}", response_model=AnalyzeJobStatusResponse)
@@ -109,22 +132,20 @@ async def upsert(req: UpsertRequest, api_key: str = Depends(verify_api_key)):
         # Placeholder vector (dimension needs to match index, e.g., 512, 1536)
         # Using 512 as an example default
         vector_dim = 512 
-        fake_vector = [0.1] * vector_dim
-        
-        vector_id = f"post:{req.post_id}"
-        metadata = {
-            "post_id": req.post_id,
-            "image_url": str(req.image_url)
-        }
-        
-        success = pinecone_service.upsert_vector(
-            vector_id=vector_id,
-            vector=fake_vector, 
-            metadata=metadata
-        )
+        vectors = []
+        for item in req.items:
+            fake_vector = [0.1] * vector_dim
+            vector_id = f"post:{item.post_id}"
+            metadata = {
+                "post_id": item.post_id,
+                "cloudinary_public_id": item.cloudinary_public_id
+            }
+            vectors.append((vector_id, fake_vector, metadata))
+            
+        success = pinecone_service.upsert_vectors(vectors=vectors)
         
         if success:
-            return UpsertResponse(status="success", vector_id=vector_id)
+            return UpsertResponse(status="success", count=len(req.items))
         else:
             raise HTTPException(status_code=500, detail="Failed to upsert to Pinecone")
         
@@ -151,31 +172,21 @@ async def delete_record(req: DeleteRequest, api_key: str = Depends(verify_api_ke
 @app.post("/sim-search", response_model=SimSearchResponse)
 async def similarity_search(req: SimSearchRequest, api_key: str = Depends(verify_api_key)):
     """Retrieves similar images based on a given text and/or image URL from Pinecone."""
-    if req.query_text is None and req.image_url is None:
-        raise HTTPException(status_code=400, detail="At least one of query_text or image_url must be provided")
+    if req.query_text is None and req.cloudinary_public_id is None:
+        raise HTTPException(status_code=400, detail="At least one of query_text or cloudinary_public_id must be provided")
 
     try:
         # --- FAKE SIMILARITY SEARCH ---
         logger.info("--- FAKE SIMILARITY SEARCH ---")
         logger.info(f"Received sim search request: {req.model_dump()}")
-
-        # Fake results
-        results = [
-            {
-                "image_url": "https://example.com/image1.jpg",
-                "sim_score": 0.95
-            },
-            {
-                "image_url": "https://example.com/image2.jpg",
-                "sim_score": 0.93
-            },
-            {
-                "image_url": "https://example.com/image3.jpg",
-                "sim_score": 0.91
-            }
-        ][:req.top_k]
-
+        results = await sim_search_service.search(
+            query_text=req.query_text,
+            cloudinary_public_id=req.cloudinary_public_id,
+            w=req.w,
+            top_k=req.top_k,
+        )
         return {"results": results}
+
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -201,6 +212,39 @@ async def chat_endpoint(req: ChatRequest, api_key: str = Depends(verify_api_key)
 
         return ChatResponse(reply=reply, actions=actions if actions else None)
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/nsfw-check", response_model=NSFWCheckResponse)
+async def nsfw_check(req: NSFWCheckRequest, api_key: str = Depends(verify_api_key)):
+    """Checks if an image contains NSFW content and returns confidence score."""
+    try:
+        logger.info(f"Received NSFW check request for image: {req.cloudinary_public_id}")
+        
+        # TODO: Implement actual NSFW detection model
+        # For now, return a placeholder confidence score
+        # conf_score range: 0.0 (safe) to 1.0 (NSFW)
+        
+        job_id = str(uuid.uuid4())
+        job_key = f"nsfw_job:{job_id}"
+
+        # job metadata
+        await redis_client.hset(
+            job_key,
+            mapping={
+                "job_id": job_id,
+                "cloudinary_public_id": req.cloudinary_public_id,
+                "status": "queued"
+            }
+        )
+        await redis_client.expire(job_key, 86400)  # 24 saatlik TTL
+
+        # enqueue job to nsfw_queue list
+        await redis_client.rpush("nsfw_queue", job_id)
+
+        return {"job_id": job_id, "status": "queued"}
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

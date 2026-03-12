@@ -92,3 +92,10 @@ coverage/
 
 # Redis
 dump.rdb
+
+.env
+*.env
+
+
+data/
+

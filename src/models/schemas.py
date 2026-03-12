@@ -1,9 +1,9 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 from typing import Literal, Optional
 
 class AnalyzeRequest(BaseModel):
     post_id: str
-    image_url: HttpUrl
+    cloudinary_public_id: str
 
 
 class AnalyzeJobResponse(BaseModel):
@@ -17,16 +17,21 @@ class AnalyzeJobStatusResponse(BaseModel):
     result: Optional[dict] = None
     error: Optional[str] = None
 
+# -------------------------------------------------------------------
+
+class UpsertItem(BaseModel):
+    post_id: str
+    cloudinary_public_id: str
 
 class UpsertRequest(BaseModel):
-    post_id: str
-    image_url: HttpUrl
+    items: list[UpsertItem]
 
 
 class UpsertResponse(BaseModel):
     status: Literal["success", "failed"]
-    vector_id: str
+    count: int
 
+# -------------------------------------------------------------------
 
 class DeleteRequest(BaseModel):
     post_id: str
@@ -36,16 +41,18 @@ class DeleteResponse(BaseModel):
     status: Literal["success", "failed"]
     vector_id: str
 
+# -------------------------------------------------------------------
 
 class SimSearchRequest(BaseModel):
     query_text: Optional[str] = None
-    image_url: Optional[HttpUrl] = None
+    cloudinary_public_id: Optional[str] = None
     top_k: int = 5
 
 
 class SimSearchResponse(BaseModel):
     results: list[dict]
 
+# -------------------------------------------------------------------
 
 class ChatRequest(BaseModel):
     user_id: str
@@ -62,7 +69,18 @@ class ChatResponse(BaseModel):
     reply: str
     actions: Optional[list[Action]] = None
 
+# -------------------------------------------------------------------
 
 class HealthResponse(BaseModel):
     status: str
     models_loaded: list[str]
+
+# -------------------------------------------------------------------
+
+class NSFWCheckRequest(BaseModel):
+    cloudinary_public_id: str
+
+
+class NSFWCheckResponse(BaseModel):
+    job_id: str
+    status: Literal["queued"]
