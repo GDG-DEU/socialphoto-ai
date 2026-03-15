@@ -1,10 +1,13 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from src.models.schemas import *
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 from src.services.health_service import health_service
 from src.services.auth_service import verify_api_key
-from src.services.pinecone_service import pinecone_service
+from src.services.pinecone_service import PineconeService
+from src.services.indexing_service import IndexingService
+from src.services.sim_search_service import SimSearchService
+from src.services.sim_search.encoder import Encoder
 import json
 import logging
 import uuid
@@ -12,12 +15,6 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from typing import Optional
 from pydantic import BaseModel
-from src.services.sim_search.sim_search_service import sim_search_service
-from src.services.sim_search.sim_search_service import (
-    sim_search_service,
-    SimSearchRequest,
-)
-
 
 
 
@@ -27,6 +24,17 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup: Initialize ML + External Services
+    try:
+        app.state.encoder = Encoder()
+        app.state.pinecone_service = PineconeService()
+        app.state.indexing_service = IndexingService(encoder=app.state.encoder, pc_service=app.state.pinecone_service)
+        app.state.sim_search_service = SimSearchService(encoder=app.state.encoder, pc_service=app.state.pinecone_service)
+        logger.info("Services and models initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize models/services: {e}")
+        # raise
+
     # Startup: Test Redis connection
     try:
         await redis_client.ping()
@@ -81,21 +89,7 @@ async def analyze_image(req: AnalyzeRequest, api_key: str = Depends(verify_api_k
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-@app.post("/sim-search")
-async def sim_search(
-    req: SimSearchRequest,
-    api_key: str = Depends(verify_api_key),
-):
-    try:
-        result = sim_search_service.run(req)
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-
+    
 
 @app.get("/analyze/{job_id}", response_model=AnalyzeJobStatusResponse)
 async def get_analyze_job_status(job_id: str, api_key: str = Depends(verify_api_key)):
@@ -123,45 +117,25 @@ async def get_analyze_job_status(job_id: str, api_key: str = Depends(verify_api_
 
 
 @app.post("/upsert", response_model=UpsertResponse)
-async def upsert(req: UpsertRequest, api_key: str = Depends(verify_api_key)):
+async def upsert(req: UpsertRequest, request: Request, api_key: str = Depends(verify_api_key)):
     try:
-        # TODO: integrate with embedding model
-        # For now, we use a random vector or placeholder as we don't have the embedding model connected yet.
-        # This implementation assumes the structure is ready for when embeddings are available.
-        
-        # Placeholder vector (dimension needs to match index, e.g., 512, 1536)
-        # Using 512 as an example default
-        vector_dim = 512 
-        vectors = []
-        for item in req.items:
-            fake_vector = [0.1] * vector_dim
-            vector_id = f"post:{item.post_id}"
-            metadata = {
-                "post_id": item.post_id,
-                "cloudinary_public_id": item.cloudinary_public_id
-            }
-            vectors.append((vector_id, fake_vector, metadata))
-            
-        success = pinecone_service.upsert_vectors(vectors=vectors)
-        
-        if success:
-            return UpsertResponse(status="success", count=len(req.items))
-        else:
-            raise HTTPException(status_code=500, detail="Failed to upsert to Pinecone")
+        indexing_service: IndexingService = request.app.state.indexing_service
+        return await indexing_service.upsert_items(req.items)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/delete-record", response_model=DeleteResponse)
-async def delete_record(req: DeleteRequest, api_key: str = Depends(verify_api_key)):
+async def delete_record(req: DeleteRequest, request: Request, api_key: str = Depends(verify_api_key)):
     try:
-        vector_id = f"post:{req.post_id}"
+        pinecone_service: PineconeService = request.app.state.pinecone_service
+        cloudinary_public_id = req.cloudinary_public_id
         
-        success = pinecone_service.delete_vector(vector_id=vector_id)
+        success = pinecone_service.delete_vector(vector_id=cloudinary_public_id)
         
         if success:
-            return DeleteResponse(status="success", vector_id=vector_id)
+            return DeleteResponse(status="success", cloudinary_public_id=cloudinary_public_id)
         else:
             raise HTTPException(status_code=500, detail="Failed to delete from Pinecone")
         
@@ -170,22 +144,16 @@ async def delete_record(req: DeleteRequest, api_key: str = Depends(verify_api_ke
 
 
 @app.post("/sim-search", response_model=SimSearchResponse)
-async def similarity_search(req: SimSearchRequest, api_key: str = Depends(verify_api_key)):
+async def similarity_search(req: SimSearchRequest, request: Request, api_key: str = Depends(verify_api_key)):
     """Retrieves similar images based on a given text and/or image URL from Pinecone."""
     if req.query_text is None and req.cloudinary_public_id is None:
         raise HTTPException(status_code=400, detail="At least one of query_text or cloudinary_public_id must be provided")
 
     try:
-        # --- FAKE SIMILARITY SEARCH ---
-        logger.info("--- FAKE SIMILARITY SEARCH ---")
         logger.info(f"Received sim search request: {req.model_dump()}")
-        results = await sim_search_service.search(
-            query_text=req.query_text,
-            cloudinary_public_id=req.cloudinary_public_id,
-            w=req.w,
-            top_k=req.top_k,
-        )
-        return {"results": results}
+        sim_search_service: SimSearchService = request.app.state.sim_search_service
+        results = await sim_search_service.search(req)
+        return results
 
 
     except Exception as e:
