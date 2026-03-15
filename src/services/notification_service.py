@@ -1,6 +1,7 @@
 import socketio
 import logging
 import os
+import httpx
 from typing import Dict, Any, Union, List
 from dotenv import load_dotenv
 
@@ -68,17 +69,33 @@ class NotificationService:
     
     async def notify_job_completion(self, job_data: Dict[str, Any]):
         """
-        İş tamamlandığında backend'e bildirim gönder.
-        
-        TODO: Şuanda tüm clientlara gönderiyor, 
-        daha sonra sadece ilgili backend'e gönderecek şekilde değiştirilecek
-        (room-based messaging veya sid tracking ile)
-        
-        Args:
-            job_data: Job bilgileri (job_id, status, result, error vb.)
+        İş tamamlandığında backend'e hem Socket.IO hem de HTTP Webhook üzerinden bildirim gönder.
         """
+        # 1. Mevcut Socket.IO yayını (Eğer frontend vs. dinliyorsa diye bozmayalım)
         await self.sio.emit("job_done", job_data)
-        logger.info(f"Job completion notification sent: {job_data.get('job_id')}")
+        
+        # 2. YENİ EKLENEN: Backend'e HTTP POST (Webhook) atma kısmı
+        webhook_url = job_data.get("webhook_url")
+        if webhook_url:
+            try:
+                # Backend için API Anahtarı
+                api_key = os.getenv("X-API-Key", "tpCPZBaFflXj-LnzUO3kXwuWmlvN6kfTLJjgCz1yvX4")
+                headers = {"x-api-key": api_key}
+                
+                # httpx ile backend'e asenkron POST isteği atıyoruz
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        webhook_url, 
+                        json=job_data, 
+                        headers=headers,
+                        timeout=10.0
+                    )
+                    response.raise_for_status() # Hata varsa (404, 500) except bloğuna düşürür
+                    logger.info(f"Webhook successfully sent to backend! Status: {response.status_code}")
+            except Exception as e:
+                logger.error(f"Failed to send HTTP webhook to {webhook_url}. Error: {str(e)}")
+        else:
+            logger.warning("No webhook_url found in job_data! Cannot send HTTP notification.")
     
     def get_asgi_app(self, fastapi_app):
         """

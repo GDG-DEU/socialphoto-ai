@@ -37,6 +37,8 @@ async def run_worker():
             await redis_client.hset(job_key, "status", "processing")
 
             try:
+                webhook_url = await redis_client.hget(job_key, "webhook_url")
+
                 # --- FAKE AI WORK ---
                 logger.info("--- FAKE AI WORK ---")
                 logger.info(f"Processing job: {job_id}")
@@ -52,13 +54,21 @@ async def run_worker():
                         "suggested_tags": json.dumps(tags)
                     }
                 )
-
-                await notification_service.notify_job_completion({
-                    "job_id": job_id,
+                #BACKENDE MUTLAKA BU FORMATTA NOTİF LOADI ATTIĞINIZDAN EMİN OLUN.
+                notification_payload = {
+                    "post_id": job_id,
                     "status": "completed",
-                    "aesthetic_score": score,
-                    "suggested_tags": tags
-                })
+                    "result": {
+                        "aesthetic_score": score,
+                        "suggested_tags": tags
+                    }
+                }
+                     
+                if webhook_url:
+                     notification_payload["webhook_url"] = webhook_url
+
+                logger.info(f"Sending webhook payload: {json.dumps(notification_payload)}")
+                await notification_service.notify_job_completion(notification_payload)
 
                 await redis_client.expire(job_key, 1800) # 30 dakika
 
@@ -73,11 +83,16 @@ async def run_worker():
                 )
                 await redis_client.expire(job_key, 1800) # 30 dakika
 
-                await notification_service.notify_job_completion({
-                    "job_id": job_id,
+                failure_payload = {
+                    "post_id": job_id,
                     "status": "failed",
                     "error": str(e)
-                })
+                }
+                     
+                if 'webhook_url' in locals() and webhook_url:
+                     failure_payload["webhook_url"] = webhook_url
+
+                await notification_service.notify_job_completion(failure_payload)
 
         except ConnectionError as e:
             # Redis connection lost - retry with exponential backoff

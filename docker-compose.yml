@@ -1,21 +1,4 @@
 services:
-  redis:
-    image: redis:7-alpine
-    container_name: ai-service-redis
-    # Şifreyi ve env_file satırını sildik!
-    ports:
-      - "127.0.0.1:6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - ai-service-network
-
   api:
     build:
       context: .
@@ -24,38 +7,41 @@ services:
     command: uv run uvicorn app:combined_app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
-    depends_on:
-      redis:
-        condition: service_healthy
     environment:
-      - REDIS_HOST=redis
+      # Artık backend'in Redis'ine sesleniyor!
+      - REDIS_HOST=socialphoto_redis
     volumes:
       - .:/app
     restart: unless-stopped
-    networks:
-      - ai-service-network
+    # networks kısmı yazmıyor çünkü otomatik olarak aşağıdaki 'default' ağına girecek
 
-  worker:
+  nsfw-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uv run python -m src.workers.nsfw_worker # <-- DİKKAT: Dosya adının böyle olduğunu varsayıyorum
+    environment:
+      # AI servisi, backend'in Redis instance'ını (socialphoto_redis) kullanır
+      - REDIS_HOST=socialphoto_redis
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+  # 2. İşçi: Asıl Analist
+  analyze-worker:
     build:
       context: .
       dockerfile: Dockerfile
     command: uv run python -m src.workers.analyze_worker
-    depends_on:
-      redis:
-        condition: service_healthy
     environment:
-      - REDIS_HOST=redis
+      # AI servisi, backend'in Redis instance'ını (socialphoto_redis) kullanır
+      - REDIS_HOST=socialphoto_redis
     volumes:
       - .:/app
     restart: unless-stopped
-    networks:
-      - ai-service-network
-    deploy:
-      replicas: 2
-
-volumes:
-  redis_data:
+    # networks kısmı yazmıyor çünkü otomatik olarak aşağıdaki 'default' ağına girecek
 
 networks:
-  ai-service-network:
-    driver: bridge
+  default:
+    name: socialphoto-backend_default # Backend klasörünün ismine göre değişir
+    external: true
