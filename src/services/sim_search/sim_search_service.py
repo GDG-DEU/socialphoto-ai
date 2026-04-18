@@ -49,7 +49,8 @@ class SimSearchService:
             md = (m.get("metadata") or {}) if isinstance(m, dict) else {}
             results.append(
                 {
-                    "image_url": md.get("image_url") or md.get("filename"),
+                    "post_id": md.get("post_id"),
+                    "image_url": md.get("image_url"),
                     "sim_score": m.get("score") if isinstance(m, dict) else None,
                 }
             )
