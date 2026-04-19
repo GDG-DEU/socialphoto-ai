@@ -13,6 +13,10 @@ from dotenv import load_dotenv
 from typing import Optional
 from pydantic import BaseModel
 from src.services.sim_search.sim_search_service import sim_search_service
+from src.services.sim_search.sim_search_service import (
+    sim_search_service,
+    SimSearchRequest,
+)
 
 
 
@@ -77,7 +81,18 @@ async def analyze_image(req: AnalyzeRequest, api_key: str = Depends(verify_api_k
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+@app.post("/sim-search")
+async def sim_search(
+    req: SimSearchRequest,
+    api_key: str = Depends(verify_api_key),
+):
+    try:
+        result = sim_search_service.run(req)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 
@@ -116,17 +131,16 @@ async def upsert(req: UpsertRequest, api_key: str = Depends(verify_api_key)):
         
         # Placeholder vector (dimension needs to match index, e.g., 512, 1536)
         # Using 512 as an example default
+        vector_dim = 512 
         vectors = []
         for item in req.items:
-            # Gerçek encode işlemi! (Resmi indirip vektöre çevirir)
-            v_image = sim_search_service.encoder.encode_image(item.image_url)
-            
+            fake_vector = [0.1] * vector_dim
             vector_id = f"post:{item.post_id}"
             metadata = {
                 "post_id": item.post_id,
-                "image_url": item.image_url
+                "cloudinary_public_id": item.cloudinary_public_id
             }
-            vectors.append((vector_id, v_image, metadata))
+            vectors.append((vector_id, fake_vector, metadata))
             
         success = pinecone_service.upsert_vectors(vectors=vectors)
         
@@ -158,8 +172,8 @@ async def delete_record(req: DeleteRequest, api_key: str = Depends(verify_api_ke
 @app.post("/sim-search", response_model=SimSearchResponse)
 async def similarity_search(req: SimSearchRequest, api_key: str = Depends(verify_api_key)):
     """Retrieves similar images based on a given text and/or image URL from Pinecone."""
-    if req.query_text is None and req.image_url is None:
-        raise HTTPException(status_code=400, detail="At least one of query_text or image_url must be provided")
+    if req.query_text is None and req.cloudinary_public_id is None:
+        raise HTTPException(status_code=400, detail="At least one of query_text or cloudinary_public_id must be provided")
 
     try:
         # --- FAKE SIMILARITY SEARCH ---
@@ -167,9 +181,9 @@ async def similarity_search(req: SimSearchRequest, api_key: str = Depends(verify
         logger.info(f"Received sim search request: {req.model_dump()}")
         results = await sim_search_service.search(
             query_text=req.query_text,
-            image_url=req.image_url,
+            cloudinary_public_id=req.cloudinary_public_id,
             w=req.w,
-            top_k=req.k,
+            top_k=req.top_k,
         )
         return {"results": results}
 

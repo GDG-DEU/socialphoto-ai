@@ -21,7 +21,7 @@ class AnalyzeJobStatusResponse(BaseModel):
 
 class UpsertItem(BaseModel):
     post_id: str
-    image_url: str
+    cloudinary_public_id: str
 
 class UpsertRequest(BaseModel):
     items: list[UpsertItem]
@@ -45,9 +45,8 @@ class DeleteResponse(BaseModel):
 
 class SimSearchRequest(BaseModel):
     query_text: Optional[str] = None
-    image_url: Optional[str] = None
-    k: int = 10
-    w: float = 0.5
+    cloudinary_public_id: Optional[str] = None
+    top_k: int = 5
 
 
 class SimSearchResponse(BaseModel):
