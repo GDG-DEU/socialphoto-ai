@@ -1,6 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import List
 import asyncio
 
 from src.models.schemas import SimSearchRequest, SimSearchResponse

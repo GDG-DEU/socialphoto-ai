@@ -35,7 +35,11 @@ class IndexingService:
         if not vectors:
             return UpsertResponse(status="failed", count=0)
 
-        success = await asyncio.to_thread(self.pc_service.upsert_vectors, vectors=vectors)
+        try:
+            success = await asyncio.to_thread(self.pc_service.upsert_vectors, vectors=vectors)
+        except Exception as exc:
+            logger.error("Failed to upsert %d vectors to Pinecone: %s", len(vectors), exc)
+            return UpsertResponse(status="failed", count=0)
 
         if success:
             return UpsertResponse(status="success", count=len(vectors))

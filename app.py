@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from typing import Optional
 from pydantic import BaseModel
-
+import asyncio
 
 
 load_dotenv()
@@ -26,14 +26,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup: Initialize ML + External Services
     try:
-        app.state.encoder = Encoder()
+        app.state.encoder = await asyncio.to_thread(Encoder)
         app.state.pinecone_service = PineconeService()
         app.state.indexing_service = IndexingService(encoder=app.state.encoder, pc_service=app.state.pinecone_service)
         app.state.sim_search_service = SimSearchService(encoder=app.state.encoder, pc_service=app.state.pinecone_service)
         logger.info("Services and models initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize models/services: {e}")
-        # raise
+        raise
 
     # Startup: Test Redis connection
     try:
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
         logger.info("Redis connected successfully")
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
-        #raise
+        raise
     
     # Register health checks
     health_service.register("redis", redis_client.ping)
@@ -132,7 +132,10 @@ async def delete_record(req: DeleteRequest, request: Request, api_key: str = Dep
         pinecone_service: PineconeService = request.app.state.pinecone_service
         cloudinary_public_id = req.cloudinary_public_id
         
-        success = pinecone_service.delete_vector(vector_id=cloudinary_public_id)
+        success = await asyncio.to_thread(
+            pinecone_service.delete_vector,
+            vector_id=cloudinary_public_id,
+        )
         
         if success:
             return DeleteResponse(status="success", cloudinary_public_id=cloudinary_public_id)
@@ -145,7 +148,7 @@ async def delete_record(req: DeleteRequest, request: Request, api_key: str = Dep
 
 @app.post("/sim-search", response_model=SimSearchResponse)
 async def similarity_search(req: SimSearchRequest, request: Request, api_key: str = Depends(verify_api_key)):
-    """Retrieves similar images based on a given text and/or image URL from Pinecone."""
+    """Retrieves similar images based on the provided query_text and/or cloudinary_public_id from Pinecone."""
     if req.query_text is None and req.cloudinary_public_id is None:
         raise HTTPException(status_code=400, detail="At least one of query_text or cloudinary_public_id must be provided")
 
