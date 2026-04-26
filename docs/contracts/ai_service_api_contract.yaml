@@ -142,8 +142,12 @@ paths:
     post:
       summary: Agent Sohbet
       description: |
-        Kullanıcıyla bağlam farkındalığı olan sohbet sağlar.
-        Gerekirse ek aksiyonlar tetikleyebilir.
+        Stateless agentic sohbet akışını çalıştırır.
+        Servis konuşma/session state tutmaz; her istekte gelen history üzerinden çalışır.
+        Kullanıcıya gösterilecek metni `reply` alanında döner.
+        Backend için yapılandırılmış tool çıktıları `actions` alanında döner.
+        Cloudinary public ID gibi internal alanlar kullanıcı metninden ayrıştırılır,
+        backend'e `actions` içinde iletilir.
       security:
         - ApiKeyAuth: []
       requestBody:
@@ -341,16 +345,40 @@ components:
           type: array
           items:
             type: object
-            description: Önceki mesajlar (serbest format)
+            required:
+              - role
+              - content
+            properties:
+              role:
+                type: string
+                enum: [USER, ASSISTANT]
+                description: Mesaj rolü. USER -> Gemini user, ASSISTANT -> Gemini model.
+              content:
+                type: string
+                description: Mesaj metni.
+              tool_calls:
+                type: object
+                nullable: true
+                description: Mesajla ilişkili tool payload'ları.
+                properties:
+                  image_cloudinary_id:
+                    type: string
+                    description: Mesajla ilişkili Cloudinary image public ID.
+        image_cloudinary_id:
+          type: string
+          nullable: true
+          description: Mevcut kullanıcı mesajı için opsiyonel Cloudinary image public ID.
 
     ChatResponse:
       type: object
       properties:
         reply:
           type: string
+          description: Kullanıcıya gösterilecek sanitize edilmiş agent cevabı.
         actions:
           type: array
           nullable: true
+          description: Backend için tool çıktıları (UI'da doğrudan gösterilmez).
           items:
             $ref: '#/components/schemas/Action'
     
@@ -362,14 +390,19 @@ components:
       properties:
         type:
           type: string
-          description: Action türü (örn. "search_images", "analyze_photo")
-          example: search_images
+          description: Action türü (örn. "search_similar_images_result")
+          example: search_similar_images_result
         parameters:
           type: object
-          description: Action için gerekli parametreler
+          description: Action için gerekli parametreler/tool sonucu
           example:
-            query: "sunset beach"
-            top_k: 10
+            cloudinary_public_ids:
+              - "chat-temp/abc123"
+              - "gallery/def456"
+            result:
+              results:
+                - cloudinary_public_id: "chat-temp/abc123"
+                  sim_score: 0.98
 
     NSFWCheckRequest:
       type: object
