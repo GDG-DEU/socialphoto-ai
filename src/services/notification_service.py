@@ -95,7 +95,7 @@ class NotificationService:
             except Exception as e:
                 logger.error(f"Failed to send HTTP webhook to {webhook_url}. Error: {str(e)}")
         else:
-            logger.warning("No webhook_url found in job_data! Cannot send HTTP notification.")
+            logger.debug("No webhook_url found in job_data; skipping HTTP notification.")
     
     def get_asgi_app(self, fastapi_app):
         """
