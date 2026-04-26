@@ -30,7 +30,7 @@ class AgentService:
         user_id: str,
         message: str,
         history: list[dict[str, Any]],
-        image_cloudinary_id: str | None = None,
+        cloudinary_public_id: str | None = None,
     ) -> ChatResponse:
         """Run the agentic loop and return user reply plus backend actions."""
         messages = await self._build_messages(history=history)
@@ -38,7 +38,7 @@ class AgentService:
         messages.append(
             await self._build_current_turn(
                 message=message,
-                image_cloudinary_id=image_cloudinary_id,
+                cloudinary_public_id=cloudinary_public_id,
             )
         )
 
@@ -124,7 +124,7 @@ class AgentService:
             parts: list[dict[str, Any]] = []
             tool_calls = entry.get("tool_calls")
             if isinstance(tool_calls, dict):
-                image_id = tool_calls.get("image_cloudinary_id")
+                image_id = tool_calls.get("cloudinary_public_id")
                 if image_id:
                     b64_image = await self._fetch_image_as_b64(str(image_id))
                     parts.append(
@@ -146,13 +146,13 @@ class AgentService:
     async def _build_current_turn(
         self,
         message: str,
-        image_cloudinary_id: Optional[str],
+        cloudinary_public_id: Optional[str],
     ) -> dict[str, Any]:
         """Build current user turn including optional image and required text."""
         parts: list[dict[str, Any]] = []
 
-        if image_cloudinary_id:
-            b64_image = await self._fetch_image_as_b64(image_cloudinary_id)
+        if cloudinary_public_id:
+            b64_image = await self._fetch_image_as_b64(cloudinary_public_id)
             parts.append(
                 {
                     "inline_data": {

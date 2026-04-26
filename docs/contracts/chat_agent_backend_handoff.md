@@ -24,11 +24,11 @@ This document defines the production chat integration contract between Node.js b
       "role": "USER | ASSISTANT",
       "content": "string",
       "tool_calls": {
-        "image_cloudinary_id": "chat-temp/abc123"
+        "cloudinary_public_id": "chat-temp/abc123"
       }
     }
   ],
-  "image_cloudinary_id": "optional-string"
+  "cloudinary_public_id": "optional-string"
 }
 ```
 
@@ -57,8 +57,8 @@ This document defines the production chat integration contract between Node.js b
 ## History Mapping Rules
 - `role: USER` maps to Gemini `user`.
 - `role: ASSISTANT` maps to Gemini `model`.
-- If `tool_calls.image_cloudinary_id` exists, AI Service fetches that image from Cloudinary and includes it in the model input.
-- Current-turn image is passed via `image_cloudinary_id`.
+- If `tool_calls.cloudinary_public_id` exists, AI Service fetches that image from Cloudinary and includes it in the model input.
+- Current-turn image is passed via `cloudinary_public_id`.
 
 ## Agent Tools Used by AI Service
 1. `search_similar_images`

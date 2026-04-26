@@ -213,7 +213,7 @@ async def chat_endpoint(
             user_id=req.user_id,
             message=req.message,
             history=req.history or [],
-            image_cloudinary_id=req.image_cloudinary_id,
+            cloudinary_public_id=req.cloudinary_public_id,
         )
         return ChatResponse(reply=agent_result.reply, actions=agent_result.actions)
 

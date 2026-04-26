@@ -58,7 +58,7 @@ class ChatRequest(BaseModel):
     user_id: str
     message: str
     history: Optional[list[dict]] = None
-    image_cloudinary_id: Optional[str] = None
+    cloudinary_public_id: Optional[str] = None
 
 
 class Action(BaseModel):

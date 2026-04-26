@@ -361,10 +361,10 @@ components:
                 nullable: true
                 description: Mesajla ilişkili tool payload'ları.
                 properties:
-                  image_cloudinary_id:
+                  cloudinary_public_id:
                     type: string
                     description: Mesajla ilişkili Cloudinary image public ID.
-        image_cloudinary_id:
+        cloudinary_public_id:
           type: string
           nullable: true
           description: Mevcut kullanıcı mesajı için opsiyonel Cloudinary image public ID.

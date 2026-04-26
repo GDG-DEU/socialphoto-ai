@@ -204,7 +204,7 @@ async def test_agent_service_builds_history_and_current_turn_with_images(
         {
             "role": "USER",
             "content": "look at this",
-            "tool_calls": {"image_cloudinary_id": "chat-temp/abc"},
+            "tool_calls": {"cloudinary_public_id": "chat-temp/abc"},
         }
     ]
 
