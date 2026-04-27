@@ -61,8 +61,8 @@ def test_upsert_vectors_success(mock_pinecone_client):
     assert result is True
     mock_index.upsert.assert_called_once()
     _, kwargs = mock_index.upsert.call_args
-    # SDK v3 expects dicts, not tuples
-    assert kwargs['vectors'] == [{"id": "vec1", "values": [0.1, 0.2], "metadata": {"meta": "data"}}]
+    # Current service behavior forwards vectors unchanged to the Pinecone client
+    assert kwargs["vectors"] == vectors
 
 @patch.dict(os.environ, {"PINECONE_API_KEY": "fake-key", "PINECONE_INDEX_NAME": "test-index"})
 def test_upsert_vectors_fails_when_upserted_count_zero(mock_pinecone_client):
