@@ -39,12 +39,18 @@ async def lifespan(app: FastAPI):
     health_service.register("redis", redis_client.ping)
 
     app.state.sim_search_service = sim_search_service
+
     sim_search_tool = SimSearchTool(app.state.sim_search_service)
     user_context_tool = UserContextTool()
     tools = [sim_search_tool, user_context_tool]
-    gemini_client = GeminiClient(tools=tools)
     tool_executor = ToolExecutor(tools=tools)
-    app.state.agent_service = AgentService(gemini_client, tool_executor)
+
+    try:
+        gemini_client = GeminiClient(tools=tools)
+        app.state.agent_service = AgentService(gemini_client, tool_executor)
+        logger.info("Agent service initialized successfully")
+    except Exception as e:
+        logger.warning(f"Agent service is unavailable: {e}")
 
     # TODO: Register ML model health checks when implemented
     # health_service.register("clip", clip_model.health_check)

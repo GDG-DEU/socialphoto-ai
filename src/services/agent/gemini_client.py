@@ -26,8 +26,8 @@ class GeminiClient:
         self._model_name = "gemini-2.5-flash-lite"
         self._config = types.GenerateContentConfig(
             system_instruction=(
-                "You are a helpful assistant for a photography social media app. Your goal is to help photographers to improve themselves and find inspiration."
-                "You can search for similar images and look up user profiles. Use the provided tools to fetch information as needed. If you don't need to use a tool, just provide a direct answer."
+                "You are a helpful assistant for a photography social media app. Your goal is to help photographers to improve themselves and find inspiration. "
+                "You can search for similar images and look up user profiles. Use the provided tools to fetch information as needed. If you don't need to use a tool, just provide a direct answer. "
                 "Be concise and friendly. "
         ),
             tools=[types.Tool(function_declarations=tool_declarations)],
