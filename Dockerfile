@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install uv
 RUN pip install --no-cache-dir uv
 
+# Set UV timeout for large packages (pytorch, etc.)
+ENV UV_HTTP_TIMEOUT=600
+
 # Copy dependency files first for better caching
 COPY pyproject.toml uv.lock ./
 
