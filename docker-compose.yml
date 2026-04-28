@@ -27,15 +27,17 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - REDIS_HOST=redis
+      - REDIS_HOST=host.docker.internal
     volumes:
       - .:/app
     restart: unless-stopped
     networks:
       - ai-service-network
 
-  worker:
+  analyze_worker:
     build:
       context: .
       dockerfile: Dockerfile
@@ -43,15 +45,33 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - REDIS_HOST=redis
+      - REDIS_HOST=host.docker.internal
     volumes:
       - .:/app
     restart: unless-stopped
     networks:
       - ai-service-network
-    deploy:
-      replicas: 2
+
+  nsfw_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uv run python -m src.workers.nsfw_worker
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - REDIS_HOST=host.docker.internal
+    volumes:
+      - .:/app
+    restart: unless-stopped
+    networks:
+      - ai-service-network
 
 volumes:
   redis_data:

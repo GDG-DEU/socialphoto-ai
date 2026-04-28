@@ -6,7 +6,9 @@ from redis.asyncio import ConnectionError
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 from src.services.nsfw_service import NSFWService
-from src.utils.image_fetcher import fetch_cloudinary_image
+from src.utils.image_fetcher import fetch_image_from_url
+import httpx
+import os
 
 nsfw_service = NSFWService()
 
@@ -41,15 +43,15 @@ async def run_worker():
             await redis_client.hset(job_key, "status", "processing")
 
             try:
-                cloudinary_public_id = await redis_client.hget(job_key, "cloudinary_public_id")
+                temp_image_url = await redis_client.hget(job_key, "temp_image_url")
 
-                if not cloudinary_public_id:
-                    raise Exception(f"Job {job_id} için cloudinary_public_id bulunamadı!")
+                if not temp_image_url:
+                    raise Exception(f"Job {job_id} için temp_image_url bulunamadı!")
 
                 # --- AI ANALİZİ ---
-                logger.info(f"Processing Job {job_id}: Analyzing file {cloudinary_public_id}")
+                logger.info(f"Processing Job {job_id}: Analyzing file from {temp_image_url}")
 
-                image = await fetch_cloudinary_image(str(cloudinary_public_id))
+                image = await fetch_image_from_url(str(temp_image_url))
                 analysis_result = await nsfw_service.predict_async(image)
                 nsfw_score = analysis_result.get("nsfw", 0)
 
@@ -63,12 +65,28 @@ async def run_worker():
                 )
 
                 # 2. Backend'e bildirimi gönder
-                await notification_service.notify_job_completion({
+                payload = {
                     "job_id": job_id,
+                    "post_id": job_id, # job_id is post_id
                     "status": "completed",
-                    "nsfw_score": nsfw_score,
-                    "cloudinary_public_id": cloudinary_public_id
-                })
+                    "nsfw_score": nsfw_score
+                }
+                
+                webhook_url = await redis_client.hget(job_key, "webhook_url")
+                if webhook_url:
+                    api_key = os.getenv("X-API-Key", "tpCPZBaFflXj-LnzUO3kXwuWmlvN6kfTLJjgCz1yvX4")
+                    try:
+                        async with httpx.AsyncClient() as client:
+                            await client.post(
+                                str(webhook_url), 
+                                json=payload, 
+                                headers={"x-api-key": api_key, "Content-Type": "application/json"}
+                            )
+                        logger.info(f"Webhook sent to {webhook_url} for job {job_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to send webhook: {e}")
+
+                await notification_service.notify_job_completion(payload)
 
                 # 3. Temizlik ve Log
                 await redis_client.expire(job_key, 1800)
@@ -85,11 +103,27 @@ async def run_worker():
                 )
                 await redis_client.expire(job_key, 1800)
 
-                await notification_service.notify_job_completion({
+                payload = {
                     "job_id": job_id,
+                    "post_id": job_id,
                     "status": "failed",
                     "error": str(e)
-                })
+                }
+
+                webhook_url = await redis_client.hget(job_key, "webhook_url")
+                if webhook_url:
+                    api_key = os.getenv("X-API-Key", "tpCPZBaFflXj-LnzUO3kXwuWmlvN6kfTLJjgCz1yvX4")
+                    try:
+                        async with httpx.AsyncClient() as client:
+                            await client.post(
+                                str(webhook_url), 
+                                json=payload, 
+                                headers={"x-api-key": api_key, "Content-Type": "application/json"}
+                            )
+                    except Exception as webhook_err:
+                        logger.error(f"Failed to send webhook: {webhook_err}")
+
+                await notification_service.notify_job_completion(payload)
 
         except ConnectionError as e:
             logger.error(f"Redis connection error: {e}. Retrying in {retry_delay} seconds...")

@@ -5,6 +5,8 @@ import signal
 from redis.asyncio import ConnectionError
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
+import httpx
+import os
 
 
 JOB_PREFIX = "analyze_job:"
@@ -37,28 +39,63 @@ async def run_worker():
             await redis_client.hset(job_key, "status", "processing")
 
             try:
-                # --- FAKE AI WORK ---
-                logger.info("--- FAKE AI WORK ---")
-                logger.info(f"Processing job: {job_id}")
-                await asyncio.sleep(3)
+                temp_image_url = await redis_client.hget(job_key, "temp_image_url")
+                theme_title = await redis_client.hget(job_key, "theme_title") or "Genel Tema"
+
+                if not temp_image_url:
+                    raise Exception(f"Job {job_id} için temp_image_url bulunamadı!")
+
+                # --- AI WORK (Topic Match & Aesthetic Analysis) ---
+                logger.info(f"Processing Topic Match & Analysis for Job {job_id}")
+                logger.info(f"Vision Prompt: 'Bu fotoğraf {theme_title} ile ilgili mi?'")
+                
+                await asyncio.sleep(2) # Simulate Vision AI processing time
+                
+                # TODO: Integrate real Vision LLM (e.g. OpenAI GPT-4o or LLaVA)
+                # For now, we simulate a successful match.
+                topic_match = True 
+                
                 score = 8.42
-                tags = ["sunset", "beach", "warm colors"]
+                tags = ["sunset", "beach", "warm colors", theme_title]
+
+                result_data = {
+                    "topic_match": topic_match,
+                    "aesthetic_score": score,
+                    "suggested_tags": tags
+                }
 
                 await redis_client.hset(
                     job_key,
                     mapping={
                         "status": "completed",
                         "aesthetic_score": score,
-                        "suggested_tags": json.dumps(tags)
+                        "suggested_tags": json.dumps(tags),
+                        "topic_match": int(topic_match)
                     }
                 )
 
-                await notification_service.notify_job_completion({
+                payload = {
                     "job_id": job_id,
+                    "post_id": job_id,
                     "status": "completed",
-                    "aesthetic_score": score,
-                    "suggested_tags": tags
-                })
+                    "result": result_data
+                }
+
+                webhook_url = await redis_client.hget(job_key, "webhook_url")
+                if webhook_url:
+                    api_key = os.getenv("X-API-Key", "tpCPZBaFflXj-LnzUO3kXwuWmlvN6kfTLJjgCz1yvX4")
+                    try:
+                        async with httpx.AsyncClient() as client:
+                            await client.post(
+                                str(webhook_url), 
+                                json=payload, 
+                                headers={"x-api-key": api_key, "Content-Type": "application/json"}
+                            )
+                        logger.info(f"Webhook sent to {webhook_url} for job {job_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to send webhook: {e}")
+
+                await notification_service.notify_job_completion(payload)
 
                 await redis_client.expire(job_key, 1800) # 30 dakika
 
@@ -73,11 +110,27 @@ async def run_worker():
                 )
                 await redis_client.expire(job_key, 1800) # 30 dakika
 
-                await notification_service.notify_job_completion({
+                payload = {
                     "job_id": job_id,
+                    "post_id": job_id,
                     "status": "failed",
                     "error": str(e)
-                })
+                }
+
+                webhook_url = await redis_client.hget(job_key, "webhook_url")
+                if webhook_url:
+                    api_key = os.getenv("X-API-Key", "tpCPZBaFflXj-LnzUO3kXwuWmlvN6kfTLJjgCz1yvX4")
+                    try:
+                        async with httpx.AsyncClient() as client:
+                            await client.post(
+                                str(webhook_url), 
+                                json=payload, 
+                                headers={"x-api-key": api_key, "Content-Type": "application/json"}
+                            )
+                    except Exception as webhook_err:
+                        logger.error(f"Failed to send webhook: {webhook_err}")
+
+                await notification_service.notify_job_completion(payload)
 
         except ConnectionError as e:
             # Redis connection lost - retry with exponential backoff

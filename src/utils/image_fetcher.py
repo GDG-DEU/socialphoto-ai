@@ -38,4 +38,15 @@ async def fetch_cloudinary_image(public_id: str, transformations: dict = None) -
     except Exception as e:
         logger.error(f"Error fetching Cloudinary image: {e}")
         raise
+
+async def fetch_image_from_url(url: str) -> Image.Image:
+    """Fetches an image from a public URL over HTTPS."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            return Image.open(BytesIO(response.content))
+    except Exception as e:
+        logger.error(f"Error fetching image from URL {url}: {e}")
+        raise
     

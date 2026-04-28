@@ -3,6 +3,12 @@ from dataclasses import dataclass
 from typing import List, Optional
 import hashlib
 import numpy as np
+import urllib.request
+import logging
+import io
+from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -42,7 +48,28 @@ class Encoder:
         """
         if not image_ref or not str(image_ref).strip():
             raise ValueError("image is empty")
-        return self._stable_vector(seed_text=f"image::{image_ref}")
+        
+        # Download the image content to generate a hash based on actual bytes, not the URL
+        try:
+            req = urllib.request.Request(image_ref, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                image_bytes = response.read()
+                
+                # Create a perceptual vector: resize to 16x32 grayscale (512 pixels)
+                img = Image.open(io.BytesIO(image_bytes)).convert("L").resize((16, 32))
+                pixels = np.array(img, dtype=np.float32).flatten()
+                
+                # Normalize
+                norm = np.linalg.norm(pixels)
+                if norm > 0:
+                    pixels = pixels / norm
+                    
+                return pixels.tolist()
+        except Exception as e:
+            logger.warning(f"Could not fetch image for encoding ({image_ref}): {e}")
+            # Fallback to text hash if fetch fails
+            return self._stable_vector(seed_text=f"image::{image_ref}")
+
 
     def _stable_vector(self, seed_text: str) -> List[float]:
         # Deterministic seed from input so the same input gives same vector
@@ -52,9 +79,10 @@ class Encoder:
         rng = np.random.default_rng(seed)
         v = rng.normal(size=self.config.dim).astype(np.float32)
 
-        # normalize for cosine similarity friendliness
         norm = np.linalg.norm(v)
         if norm > 0:
             v = v / norm
 
         return v.tolist()
+
+
