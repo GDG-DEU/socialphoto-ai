@@ -20,6 +20,10 @@ class NotificationService:
         self.socket_io_secret = os.getenv("SOCKET_IO_SECRET")
         if not self.socket_io_secret:
             logger.warning("SOCKET_IO_SECRET not configured! Socket.IO connections will be rejected.")
+
+        self.api_key = os.getenv("API_KEY")
+        if not self.api_key:
+            logger.error("API_KEY not configured! HTTP webhook notifications will be skipped.")
         
         self.sio = socketio.AsyncServer(
             async_mode='asgi', 
@@ -77,10 +81,12 @@ class NotificationService:
         # 2. YENİ EKLENEN: Backend'e HTTP POST (Webhook) atma kısmı
         webhook_url = job_data.get("webhook_url")
         if webhook_url:
+            if not self.api_key:
+                logger.error(f"Cannot send HTTP webhook to {webhook_url}: API_KEY not configured")
+                return
+
             try:
-                # Backend için API Anahtarı
-                api_key = os.getenv("X-API-Key", "tpCPZBaFflXj-LnzUO3kXwuWmlvN6kfTLJjgCz1yvX4")
-                headers = {"x-api-key": api_key}
+                headers = {"x-api-key": self.api_key}
                 
                 # httpx ile backend'e asenkron POST isteği atıyoruz
                 async with httpx.AsyncClient() as client:
