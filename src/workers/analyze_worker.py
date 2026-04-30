@@ -2,6 +2,7 @@ import json
 import asyncio
 import logging
 import signal
+from urllib.parse import urlparse
 from redis.asyncio import ConnectionError
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
@@ -12,6 +13,14 @@ shutdown_event = asyncio.Event()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _get_webhook_host(webhook_url: str | None) -> str | None:
+    if not webhook_url:
+        return None
+
+    parsed_url = urlparse(webhook_url)
+    return parsed_url.netloc or None
 
 
 def signal_handler(sig, frame):
@@ -63,11 +72,19 @@ async def run_worker():
                         "suggested_tags": tags
                     }
                 }
-                     
+
                 if webhook_url:
                      notification_payload["webhook_url"] = webhook_url
 
-                logger.info(f"Sending webhook payload: {json.dumps(notification_payload)}")
+                webhook_host = _get_webhook_host(webhook_url)
+                logger.info(
+                    "Sending job completion notification",
+                    extra={
+                        "job_id": job_id,
+                        "status": "completed",
+                        "webhook_host": webhook_host,
+                    },
+                )
                 await notification_service.notify_job_completion(notification_payload)
 
                 await redis_client.expire(job_key, 1800) # 30 dakika
@@ -88,10 +105,19 @@ async def run_worker():
                     "status": "failed",
                     "error": str(e)
                 }
-                     
+
                 if 'webhook_url' in locals() and webhook_url:
                      failure_payload["webhook_url"] = webhook_url
 
+                webhook_host = _get_webhook_host(webhook_url if 'webhook_url' in locals() else None)
+                logger.info(
+                    "Sending job failure notification",
+                    extra={
+                        "job_id": job_id,
+                        "status": "failed",
+                        "webhook_host": webhook_host,
+                    },
+                )
                 await notification_service.notify_job_completion(failure_payload)
 
         except ConnectionError as e:
