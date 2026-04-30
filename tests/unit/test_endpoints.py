@@ -10,7 +10,7 @@ class TestAnalyzeEndpoint:
         """Should create a job and return 202 with job_id."""
         response = client.post("/analyze", json={
             "post_id": "test_post_123",
-            "image_url": "https://example.com/test-image.jpg"
+            "cloudinary_public_id": "samples/test-image"
         })
         
         assert response.status_code == 202
@@ -18,11 +18,11 @@ class TestAnalyzeEndpoint:
         assert "job_id" in data
         assert data["status"] == "queued"
     
-    def test_analyze_invalid_url(self, client):
-        """Should reject invalid image URLs."""
+    def test_analyze_invalid_cloudinary_id(self, client):
+        """Should reject request with empty cloudinary_public_id."""
         response = client.post("/analyze", json={
             "post_id": "test_post_123",
-            "image_url": "not-a-valid-url"
+            "cloudinary_public_id": ""
         })
         
         assert response.status_code == 422  # Validation error
@@ -30,7 +30,7 @@ class TestAnalyzeEndpoint:
     def test_analyze_missing_post_id(self, client):
         """Should reject request without post_id."""
         response = client.post("/analyze", json={
-            "image_url": "https://example.com/test-image.jpg"
+            "cloudinary_public_id": "samples/test-image"
         })
         
         assert response.status_code == 422
@@ -73,9 +73,9 @@ class TestSimSearchEndpoint:
         assert len(data["results"]) <= 3
     
     def test_search_with_image(self, client):
-        """Should return results for image URL query."""
+        """Should return results for image query."""
         response = client.post("/sim-search", json={
-            "image_url": "https://example.com/query.jpg",
+            "cloudinary_public_id": "samples/query",
             "top_k": 2
         })
         
@@ -86,7 +86,7 @@ class TestSimSearchEndpoint:
         """Should return results for combined text and image query."""
         response = client.post("/sim-search", json={
             "query_text": "mountain landscape",
-            "image_url": "https://example.com/mountain.jpg",
+            "cloudinary_public_id": "samples/mountain",
             "top_k": 5
         })
         
@@ -201,11 +201,11 @@ class TestPineconeEndpoints:
                 "items": [
                     {
                         "post_id": "p123",
-                        "image_url": "http://example.com/img.jpg"
+                        "cloudinary_public_id": "img/photo1"
                     },
                     {
                         "post_id": "p124",
-                        "image_url": "http://example.com/img2.jpg"
+                        "cloudinary_public_id": "img/photo2"
                     }
                 ]
             }
@@ -220,8 +220,9 @@ class TestPineconeEndpoints:
             mock_pinecone_service.upsert_vectors.assert_called_once()
             call_kwargs = mock_pinecone_service.upsert_vectors.call_args.kwargs
             assert len(call_kwargs["vectors"]) == 2
-            assert call_kwargs["vectors"][0][0] == "post:p123"
-            assert call_kwargs["vectors"][1][0] == "post:p124"
+            # vector id is cloudinary_public_id
+            assert call_kwargs["vectors"][0]["id"] == "img/photo1"
+            assert call_kwargs["vectors"][1]["id"] == "img/photo2"
 
     def test_upsert_endpoint_failure(self, client):
         """Should return 500 on upsert failure."""
@@ -233,7 +234,7 @@ class TestPineconeEndpoints:
                 "items": [
                     {
                         "post_id": "p123",
-                        "image_url": "http://example.com/img.jpg"
+                        "cloudinary_public_id": "img/photo1"
                     }
                 ]
             }
@@ -250,7 +251,7 @@ class TestPineconeEndpoints:
             mock_pinecone_service.delete_vector.return_value = True
             
             payload = {
-                "post_id": "p123"
+                "cloudinary_public_id": "img/photo1"
             }
             
             response = client.post("/delete-record", json=payload)
@@ -258,9 +259,9 @@ class TestPineconeEndpoints:
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "success"
-            assert data["vector_id"] == "post:p123"
+            assert data["cloudinary_public_id"] == "img/photo1"
             
-            mock_pinecone_service.delete_vector.assert_called_once_with(vector_id="post:p123")
+            mock_pinecone_service.delete_vector.assert_called_once_with(vector_id="img/photo1")
 
     def test_delete_endpoint_failure(self, client):
         """Should return 500 on delete failure."""
@@ -269,7 +270,7 @@ class TestPineconeEndpoints:
             mock_pinecone_service.delete_vector.return_value = False
             
             payload = {
-                "post_id": "p123"
+                "cloudinary_public_id": "img/photo1"
             }
             
             response = client.post("/delete-record", json=payload)

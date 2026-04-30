@@ -4,6 +4,9 @@ from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 from src.services.health_service import health_service
 from src.services.auth_service import verify_api_key
+from src.services.pinecone_service import pinecone_service
+from src.services.agent import AgentService, GeminiClient, ToolExecutor
+from src.services.agent.tools import SimSearchTool, UserContextTool
 from src.services.pinecone_service import PineconeService
 from src.services.indexing_service import IndexingService
 from src.services.sim_search_service import SimSearchService
@@ -13,6 +16,13 @@ import logging
 import uuid
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+from src.services.sim_search.sim_search_service import sim_search_service
+from src.services.sim_search.sim_search_service import (
+    sim_search_service,
+    SimSearchRequest,
+)
+
+
 from typing import Optional
 from pydantic import BaseModel
 import asyncio
@@ -45,6 +55,21 @@ async def lifespan(app: FastAPI):
     
     # Register health checks
     health_service.register("redis", redis_client.ping)
+
+    app.state.sim_search_service = sim_search_service
+
+    sim_search_tool = SimSearchTool(app.state.sim_search_service)
+    user_context_tool = UserContextTool()
+    tools = [sim_search_tool, user_context_tool]
+    tool_executor = ToolExecutor(tools=tools)
+
+    try:
+        gemini_client = GeminiClient(tools=tools)
+        app.state.agent_service = AgentService(gemini_client, tool_executor)
+        logger.info("Agent service initialized successfully")
+    except Exception as e:
+        logger.warning(f"Agent service is unavailable: {e}")
+
     # TODO: Register ML model health checks when implemented
     # health_service.register("clip", clip_model.health_check)
     # health_service.register("aesthetic_scorer", aesthetic_scorer.health_check)
@@ -164,24 +189,20 @@ async def similarity_search(req: SimSearchRequest, request: Request, api_key: st
     
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(req: ChatRequest, api_key: str = Depends(verify_api_key)):
-    """Handles chat messages and generates responses with optional actions."""
+async def chat_endpoint(
+    req: ChatRequest,
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+):
+    """Handles chat messages by running the stateless agent loop."""
     try:
-        # --- FAKE CHAT RESPONSE ---
-        logger.info("--- FAKE CHAT RESPONSE ---")
-        logger.info(f"Received chat request: {req.model_dump()}")
-
-        # Fake response
-        reply = f"Hello User {req.user_id}, you said: {req.message}"
-        actions = []
-
-        # Dummy actions based on keywords for now
-        if "search" in req.message.lower():
-            actions.append(Action(type="search_images", parameters={"query_text": req.message}))
-        elif "analyze" in req.message.lower():
-            actions.append(Action(type="analyze_photo", parameters={"image_url": "https://example.com/photo.jpg"}))
-
-        return ChatResponse(reply=reply, actions=actions if actions else None)
+        agent_result = await request.app.state.agent_service.run(
+            user_id=req.user_id,
+            message=req.message,
+            history=req.history or [],
+            cloudinary_public_id=req.cloudinary_public_id,
+        )
+        return ChatResponse(reply=agent_result.reply, actions=agent_result.actions)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

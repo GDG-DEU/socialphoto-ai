@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import os
-import os
 
 @pytest.fixture
 def mock_pinecone_client():
@@ -47,18 +46,38 @@ def test_pinecone_init_index_not_found(mock_pinecone_client):
     assert service.index is None # Should be none if index verification fails
 
 @patch.dict(os.environ, {"PINECONE_API_KEY": "fake-key", "PINECONE_INDEX_NAME": "test-index"})
-def test_upsert_vector_success(mock_pinecone_client):
+def test_upsert_vectors_success(mock_pinecone_client):
     _, _, mock_index = mock_pinecone_client
     from src.services.pinecone_service import PineconeService
     service = PineconeService()
-    
-    result = service.upsert_vector("vec1", [0.1, 0.2], {"meta": "data"})
-    
+
+    mock_response = MagicMock()
+    mock_response.upserted_count = 1
+    mock_index.upsert.return_value = mock_response
+
+    vectors = [("vec1", [0.1, 0.2], {"meta": "data"})]
+    result = service.upsert_vectors(vectors)
+
     assert result is True
     mock_index.upsert.assert_called_once()
-    mock_index.upsert.assert_called_once()
     _, kwargs = mock_index.upsert.call_args
-    assert kwargs['vectors'] == [("vec1", [0.1, 0.2], {"meta": "data"})]
+    # Current service behavior forwards vectors unchanged to the Pinecone client
+    assert kwargs["vectors"] == vectors
+
+@patch.dict(os.environ, {"PINECONE_API_KEY": "fake-key", "PINECONE_INDEX_NAME": "test-index"})
+def test_upsert_vectors_fails_when_upserted_count_zero(mock_pinecone_client):
+    _, _, mock_index = mock_pinecone_client
+    from src.services.pinecone_service import PineconeService
+    service = PineconeService()
+
+    mock_response = MagicMock()
+    mock_response.upserted_count = 0
+    mock_index.upsert.return_value = mock_response
+
+    vectors = [("vec1", [0.1, 0.2], {"meta": "data"})]
+    result = service.upsert_vectors(vectors)
+
+    assert result is False
 
 @patch.dict(os.environ, {"PINECONE_API_KEY": "fake-key", "PINECONE_INDEX_NAME": "test-index"})
 def test_delete_vector_success(mock_pinecone_client):
@@ -74,19 +93,23 @@ def test_delete_vector_success(mock_pinecone_client):
 @patch.dict(os.environ, {"PINECONE_API_KEY": "fake-key", "PINECONE_INDEX_NAME": "test-index"})
 def test_query_vectors_success(mock_pinecone_client):
     _, _, mock_index = mock_pinecone_client
-    
-    # Mock query response
-    mock_index.query.return_value = {
-        "matches": [
-            {"id": "vec1", "score": 0.9, "metadata": {}}
-        ]
-    }
-    
+
+    # SDK v3 returns an object with .matches attribute, not a dict
+    mock_match = MagicMock()
+    mock_match.id = "vec1"
+    mock_match.score = 0.9
+    mock_match.metadata = {"cloudinary_public_id": "img/photo1"}
+
+    mock_response = MagicMock()
+    mock_response.matches = [mock_match]
+    mock_index.query.return_value = mock_response
+
     from src.services.pinecone_service import PineconeService
     service = PineconeService()
     results = service.query_vectors([0.1, 0.2])
-    
+
     assert len(results) == 1
     assert results[0]["id"] == "vec1"
     assert results[0]["score"] == 0.9
+    assert results[0]["metadata"]["cloudinary_public_id"] == "img/photo1"
     mock_index.query.assert_called_once()
