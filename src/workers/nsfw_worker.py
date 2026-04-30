@@ -42,6 +42,7 @@ async def run_worker():
 
             try:
                 cloudinary_public_id = await redis_client.hget(job_key, "cloudinary_public_id")
+                webhook_url = await redis_client.hget(job_key, "webhook_url")
 
                 if not cloudinary_public_id:
                     raise Exception(f"Job {job_id} için cloudinary_public_id bulunamadı!")
@@ -63,12 +64,17 @@ async def run_worker():
                 )
 
                 # 2. Backend'e bildirimi gönder
-                await notification_service.notify_job_completion({
+                notification_payload = {
                     "job_id": job_id,
                     "status": "completed",
                     "nsfw_score": nsfw_score,
                     "cloudinary_public_id": cloudinary_public_id
-                })
+                }
+                
+                if webhook_url:
+                     notification_payload["webhook_url"] = webhook_url
+
+                await notification_service.notify_job_completion(notification_payload)
 
                 # 3. Temizlik ve Log
                 await redis_client.expire(job_key, 1800)
@@ -85,11 +91,17 @@ async def run_worker():
                 )
                 await redis_client.expire(job_key, 1800)
 
-                await notification_service.notify_job_completion({
+                failure_payload = {
                     "job_id": job_id,
                     "status": "failed",
                     "error": str(e)
-                })
+                }
+                
+                # Sadece webhook_url exception'dan önce başarıyla alındıysa ekle
+                if 'webhook_url' in locals() and webhook_url:
+                     failure_payload["webhook_url"] = webhook_url
+
+                await notification_service.notify_job_completion(failure_payload)
 
         except ConnectionError as e:
             logger.error(f"Redis connection error: {e}. Retrying in {retry_delay} seconds...")
