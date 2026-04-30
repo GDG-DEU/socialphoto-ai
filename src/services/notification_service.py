@@ -76,7 +76,9 @@ class NotificationService:
         İş tamamlandığında backend'e hem Socket.IO hem de HTTP Webhook üzerinden bildirim gönder.
         """
         # 1. Mevcut Socket.IO yayını (Eğer frontend vs. dinliyorsa diye bozmayalım)
-        await self.sio.emit("job_done", job_data)
+        # webhook_url sadece backend webhook çağrısı için kullanılmalı, Socket.IO istemcilerine yayınlanmamalı
+        socket_payload = {key: value for key, value in job_data.items() if key != "webhook_url"}
+        await self.sio.emit("job_done", socket_payload)
         
         # 2. YENİ EKLENEN: Backend'e HTTP POST (Webhook) atma kısmı
         webhook_url = job_data.get("webhook_url")
