@@ -1,21 +1,4 @@
 services:
-  redis:
-    image: redis:7-alpine
-    container_name: ai-service-redis
-    # Şifreyi ve env_file satırını sildik!
-    ports:
-      - "127.0.0.1:6380:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - ai-service-network
-
   api:
     build:
       context: .
@@ -24,58 +7,46 @@ services:
     command: uv run uvicorn app:combined_app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
-    depends_on:
-      redis:
-        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - socialphoto_network
     environment:
-      - REDIS_HOST=host.docker.internal
+      - REDIS_HOST=socialphoto_redis
     volumes:
       - .:/app
     restart: unless-stopped
-    networks:
-      - ai-service-network
 
   analyze_worker:
     build:
       context: .
       dockerfile: Dockerfile
     command: uv run python -m src.workers.analyze_worker
-    depends_on:
-      redis:
-        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - REDIS_HOST=host.docker.internal
+      - REDIS_HOST=socialphoto_redis
     volumes:
       - .:/app
     restart: unless-stopped
     networks:
-      - ai-service-network
+      - socialphoto_network
 
   nsfw_worker:
     build:
       context: .
       dockerfile: Dockerfile
     command: uv run python -m src.workers.nsfw_worker
-    depends_on:
-      redis:
-        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - REDIS_HOST=host.docker.internal
+      - REDIS_HOST=socialphoto_redis
     volumes:
       - .:/app
     restart: unless-stopped
     networks:
-      - ai-service-network
-
-volumes:
-  redis_data:
+      - socialphoto_network
 
 networks:
-  ai-service-network:
-    driver: bridge
+  socialphoto_network:
+    external: true
