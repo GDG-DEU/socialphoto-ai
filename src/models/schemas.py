@@ -83,4 +83,6 @@ class NSFWCheckRequest(BaseModel):
 
 class NSFWCheckResponse(BaseModel):
     job_id: str
-    status: Literal["queued"]
+    status: Literal["queued", "completed", "failed"]
+    nsfw_score: Optional[float] = None
+    error: Optional[str] = None
