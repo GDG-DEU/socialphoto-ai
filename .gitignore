@@ -100,3 +100,4 @@ dump.rdb
 data/
 models/ml/
 
+uv.lock

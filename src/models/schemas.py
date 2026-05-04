@@ -34,12 +34,12 @@ class UpsertResponse(BaseModel):
 # -------------------------------------------------------------------
 
 class DeleteRequest(BaseModel):
-    post_id: str
+    cloudinary_public_id: str
 
 
 class DeleteResponse(BaseModel):
     status: Literal["success", "failed"]
-    vector_id: str
+    cloudinary_public_id: str
 
 # -------------------------------------------------------------------
 
@@ -47,6 +47,7 @@ class SimSearchRequest(BaseModel):
     query_text: Optional[str] = None
     cloudinary_public_id: Optional[str] = None
     top_k: int = 5
+    w: float = 0.5
 
 
 class SimSearchResponse(BaseModel):
@@ -58,6 +59,7 @@ class ChatRequest(BaseModel):
     user_id: str
     message: str
     history: Optional[list[dict]] = None
+    cloudinary_public_id: Optional[str] = None
 
 
 class Action(BaseModel):
