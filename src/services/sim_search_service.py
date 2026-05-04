@@ -69,3 +69,21 @@ class SimSearchService:
     async def _fetch_and_encode_image(self, public_id: str) -> List[float]:
         img = await fetch_cloudinary_image(public_id)
         return await asyncio.to_thread(self.encoder.encode_image, img)
+
+
+_sim_search_service: SimSearchService | None = None
+
+
+def init_sim_search_service(encoder: Encoder, pc_service: PineconeService) -> SimSearchService:
+    """Initialize the singleton SimSearchService if needed."""
+    global _sim_search_service
+    if _sim_search_service is None:
+        _sim_search_service = SimSearchService(pc_service=pc_service, encoder=encoder)
+    return _sim_search_service
+
+
+def get_sim_search_service() -> SimSearchService:
+    """Return the singleton SimSearchService instance."""
+    if _sim_search_service is None:
+        raise RuntimeError("SimSearchService has not been initialized")
+    return _sim_search_service

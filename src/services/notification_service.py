@@ -1,12 +1,9 @@
 import socketio
 import logging
-import os
 import httpx
 from typing import Dict, Any, Union, List
-from dotenv import load_dotenv
 
-
-load_dotenv()
+from src.config import get_settings
 logger = logging.getLogger(__name__)
 
 
@@ -17,11 +14,12 @@ class NotificationService:
     """
     
     def __init__(self, cors_allowed_origins: Union[str, List[str]] = "*"):
-        self.socket_io_secret = os.getenv("SOCKET_IO_SECRET")
+        settings = get_settings()
+        self.socket_io_secret = settings.socket_io_secret
         if not self.socket_io_secret:
             logger.warning("SOCKET_IO_SECRET not configured! Socket.IO connections will be rejected.")
 
-        self.api_key = os.getenv("API_KEY")
+        self.api_key = settings.api_key
         if not self.api_key:
             logger.error("API_KEY not configured! HTTP webhook notifications will be skipped.")
         
@@ -118,7 +116,7 @@ class NotificationService:
         return socketio.ASGIApp(self.sio, other_asgi_app=fastapi_app)
 
 
-input_origins = os.getenv("CORS_ALLOWED_ORIGINS", "*")
+input_origins = get_settings().cors_allowed_origins
 allowed_origins: Union[str, List[str]] = input_origins
 
 if input_origins != "*":

@@ -1,9 +1,13 @@
+from pathlib import Path
+
 from huggingface_hub import hf_hub_download
 import onnxruntime as ort
 from transformers import CLIPProcessor
 from typing import List
 import numpy as np
 from PIL import Image
+
+from src.config import get_settings
 
 
 class Encoder:
@@ -13,9 +17,16 @@ class Encoder:
     """
     def __init__(self):
         repo_id = "sayantan47/clip-vit-b32-onnx"
-        onnx_model_path = hf_hub_download(repo_id=repo_id, filename="onnx/model.onnx")
+        model_cache_dir = get_settings().ml_models_dir
+        Path(model_cache_dir).mkdir(parents=True, exist_ok=True)
+
+        onnx_model_path = hf_hub_download(
+            repo_id=repo_id,
+            filename="onnx/model.onnx",
+            cache_dir=model_cache_dir,
+        )
         self.session = ort.InferenceSession(onnx_model_path, providers=["CPUExecutionProvider"])
-        self.processor = CLIPProcessor.from_pretrained(repo_id)
+        self.processor = CLIPProcessor.from_pretrained(repo_id, cache_dir=model_cache_dir)
 
     def encode_text(self, text: str) -> List[float]:
         # Model is a combined graph — needs both text and image inputs.

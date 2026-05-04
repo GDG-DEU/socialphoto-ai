@@ -1,13 +1,12 @@
 """
 API Key authentication service for securing endpoints.
 """
-import os
 from fastapi import Header, HTTPException, status
-from dotenv import load_dotenv
+from src.config import get_settings
 
 
-load_dotenv()
-API_KEY = os.getenv("X-API-Key")
+settings = get_settings()
+API_KEY = settings.x_api_key
 
 
 

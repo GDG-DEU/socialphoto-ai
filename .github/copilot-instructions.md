@@ -8,6 +8,7 @@
 
 ## Tech Stack
 - Framework: FastAPI (Python 3.12), served as a combined ASGI app with Socket.IO.
+- Credential Management: Environment variables via Pydantic Settings in `src/config.py` (loads `.env`).
 - Database: PostgreSQL (Managed by Node.js, we only read/write specific AI fields).
 - Vector DB: Pinecone (used for image similarity search via encoder + fusion pipeline).
 - Queue: Redis — background job queues consumed by worker processes.

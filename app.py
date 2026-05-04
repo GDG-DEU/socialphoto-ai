@@ -4,23 +4,18 @@ from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 from src.services.health_service import health_service
 from src.services.auth_service import verify_api_key
-from src.services.pinecone_service import pinecone_service
+from src.services.pinecone_service import PineconeService, pinecone_service
 from src.services.agent import AgentService, GeminiClient, ToolExecutor
 from src.services.agent.tools import SimSearchTool, UserContextTool
-from src.services.pinecone_service import PineconeService
 from src.services.indexing_service import IndexingService
-from src.services.sim_search_service import SimSearchService
+from src.services.sim_search_service import SimSearchService, init_sim_search_service
 from src.services.sim_search.encoder import Encoder
 import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
-from dotenv import load_dotenv
-from src.services.sim_search.sim_search_service import sim_search_service
-from src.services.sim_search.sim_search_service import (
-    sim_search_service,
-    SimSearchRequest,
-)
+from src.config import get_settings
+from src.models.schemas import SimSearchRequest
 
 
 from typing import Optional
@@ -28,8 +23,8 @@ from pydantic import BaseModel
 import asyncio
 
 
-load_dotenv()
-logging.basicConfig(level=logging.INFO)
+settings = get_settings()
+logging.basicConfig(level=settings.log_level)
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
@@ -37,9 +32,12 @@ async def lifespan(app: FastAPI):
     # Startup: Initialize ML + External Services
     try:
         app.state.encoder = await asyncio.to_thread(Encoder)
-        app.state.pinecone_service = PineconeService()
+        app.state.pinecone_service = pinecone_service
         app.state.indexing_service = IndexingService(encoder=app.state.encoder, pc_service=app.state.pinecone_service)
-        app.state.sim_search_service = SimSearchService(encoder=app.state.encoder, pc_service=app.state.pinecone_service)
+        app.state.sim_search_service = init_sim_search_service(
+            encoder=app.state.encoder,
+            pc_service=app.state.pinecone_service,
+        )
         logger.info("Services and models initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize models/services: {e}")
@@ -56,7 +54,6 @@ async def lifespan(app: FastAPI):
     # Register health checks
     health_service.register("redis", redis_client.ping)
 
-    app.state.sim_search_service = sim_search_service
 
     sim_search_tool = SimSearchTool(app.state.sim_search_service)
     user_context_tool = UserContextTool()
@@ -209,28 +206,22 @@ async def chat_endpoint(
 
 
 @app.post("/nsfw-check", response_model=NSFWCheckResponse)
-async def nsfw_check(req: NSFWCheckRequest, api_key: str = Depends(verify_api_key)):
+async def nsfw_check(req: NSFWCheckRequest, request: Request, api_key: str = Depends(verify_api_key)):
     """Checks if an image contains NSFW content and returns confidence score."""
     try:
         logger.info(f"Received NSFW check request for image: {req.cloudinary_public_id}")
-        
-        # TODO: Implement actual NSFW detection model
-        # For now, return a placeholder confidence score
-        # conf_score range: 0.0 (safe) to 1.0 (NSFW)
-        
+
         job_id = str(uuid.uuid4())
         job_key = f"nsfw_job:{job_id}"
-
-        # job metadata
         await redis_client.hset(
             job_key,
             mapping={
                 "job_id": job_id,
                 "cloudinary_public_id": req.cloudinary_public_id,
-                "status": "queued"
+                "status": "queued",
             }
         )
-        await redis_client.expire(job_key, 86400)  # 24 saatlik TTL
+        await redis_client.expire(job_key, 86400)
 
         # enqueue job to nsfw_queue list
         await redis_client.rpush("nsfw_queue", job_id)

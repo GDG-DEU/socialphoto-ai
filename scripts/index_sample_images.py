@@ -1,22 +1,20 @@
-import os
 import torch
 import torch.nn.functional as F
 from PIL import Image
 from pathlib import Path
 from transformers import CLIPImageProcessor, CLIPVisionModelWithProjection, CLIPVisionConfig
 from pinecone import Pinecone, ServerlessSpec
-from dotenv import load_dotenv  # Bunu ekledik
+from src.config import get_settings
 
-# .env dosyasındaki değişkenleri yükle
-load_dotenv()
+settings = get_settings()
 
 # --- AYARLAR ---
 MODEL_NAME = "openai/clip-vit-base-patch32"
 IMAGES_DIR = Path("data/sample_images")
 
 # API Key'i .env'den çekiyoruz
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY") 
-INDEX_NAME = "social-photo-index" # Pinecone panelindeki ismin bu
+PINECONE_API_KEY = settings.pinecone_api_key
+INDEX_NAME = settings.pinecone_index_name or "social-photo-index"  # Pinecone panelindeki ismin bu
 
 # API Key kontrolü
 if not PINECONE_API_KEY:

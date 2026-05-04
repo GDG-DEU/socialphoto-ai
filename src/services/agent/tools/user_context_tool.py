@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 from typing import Any, ClassVar
 
 import httpx
 
+from src.config import get_settings
 from src.services.agent.tools.base_tool import BaseTool
 
 
@@ -30,8 +30,9 @@ class UserContextTool(BaseTool):
 
     async def execute(self, user_id: str, **_: Any) -> Any:
         """Fetch user context from Node.js internal endpoint."""
-        backend_url = os.getenv("BACKEND_URL")
-        api_key = os.getenv("API_KEY")
+        settings = get_settings()
+        backend_url = settings.backend_url
+        api_key = settings.api_key
 
         if not backend_url:
             raise ValueError("BACKEND_URL is not set")

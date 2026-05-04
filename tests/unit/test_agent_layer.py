@@ -49,7 +49,7 @@ async def test_tool_executor_wraps_non_dict_result() -> None:
 
 @pytest.mark.asyncio
 async def test_sim_search_tool_uses_existing_service_contract() -> None:
-    mock_service = SimpleNamespace(search=AsyncMock(return_value=[{"sim_score": 0.9}]))
+    mock_service = SimpleNamespace(search=AsyncMock(return_value={"results": [{"sim_score": 0.9}]}))
     tool = SimSearchTool(mock_service)
 
     result = await tool.execute(
@@ -59,11 +59,13 @@ async def test_sim_search_tool_uses_existing_service_contract() -> None:
     )
 
     assert result == {"results": [{"sim_score": 0.9}]}
-    mock_service.search.assert_awaited_once_with(
-        query_text="sunset beach",
-        image_url="samples/img1",
-        top_k=3,
-    )
+    mock_service.search.assert_awaited_once()
+    call_args = mock_service.search.await_args.args
+    assert len(call_args) == 1
+    request = call_args[0]
+    assert request.query_text == "sunset beach"
+    assert request.cloudinary_public_id == "samples/img1"
+    assert request.top_k == 3
 
 
 @pytest.mark.asyncio

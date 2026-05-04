@@ -1,18 +1,17 @@
-import os
 from pinecone import Pinecone
 import logging
 from typing import List, Dict, Any, Optional
-from dotenv import load_dotenv
 
+from src.config import get_settings
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 class PineconeService:
     def __init__(self):
-        self.api_key = os.getenv("PINECONE_API_KEY")
-        self.index_name = os.getenv("PINECONE_INDEX_NAME")
-        self.namespace = os.getenv("PINECONE_NAMESPACE")
+        settings = get_settings()
+        self.api_key = settings.pinecone_api_key
+        self.index_name = settings.pinecone_index_name
+        self.namespace = settings.pinecone_namespace
         self.pc = None
         self.index = None
         
@@ -154,4 +153,7 @@ class PineconeService:
         except Exception as e:
             logger.error(f"Failed to query vectors: {e}")
             return []
+
+
+pinecone_service = PineconeService()
 

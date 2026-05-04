@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 
 from google import genai
 from google.genai import types
 
 from src.services.agent.tools.base_tool import BaseTool
+from src.config import get_settings
 
 
 class GeminiClient:
@@ -15,7 +15,7 @@ class GeminiClient:
 
     def __init__(self, tools: list[BaseTool]) -> None:
         """Configure Gemini model with tool declarations and system instructions."""
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = get_settings().gemini_api_key
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not set")
 
