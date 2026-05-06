@@ -43,5 +43,5 @@ services:
 
 networks:
   default:
-    name: socialphoto-backend_default # Backend klasörünün ismine göre değişir
+    name: socialphoto_backend_default # Backend klasörünün ismine göre değişir
     external: true
