@@ -87,7 +87,7 @@ combined_app = notification_service.get_asgi_app(app)
 
 # This endpoint has been implemented for manual testing purposes. Originally, jobs are enqueued by backend service.
 @app.post("/analyze", response_model=AnalyzeJobResponse, status_code=202)
-async def analyze_image(req: AnalyzeRequest, api_key: str = Depends(verify_api_key)):
+async def analyze_image(req: AnalyzeRequest, x_api_key: str = Depends(verify_api_key)):
     try:
         job_id = str(uuid.uuid4())
         job_key = f"analyze_job:{job_id}"
@@ -114,7 +114,7 @@ async def analyze_image(req: AnalyzeRequest, api_key: str = Depends(verify_api_k
     
 
 @app.get("/analyze/{job_id}", response_model=AnalyzeJobStatusResponse)
-async def get_analyze_job_status(job_id: str, api_key: str = Depends(verify_api_key)):
+async def get_analyze_job_status(job_id: str, x_api_key: str = Depends(verify_api_key)):
     job_key = f"analyze_job:{job_id}"
     job_data = await redis_client.hgetall(job_key)
     if not job_data:
@@ -139,7 +139,7 @@ async def get_analyze_job_status(job_id: str, api_key: str = Depends(verify_api_
 
 
 @app.post("/upsert", response_model=UpsertResponse)
-async def upsert(req: UpsertRequest, request: Request, api_key: str = Depends(verify_api_key)):
+async def upsert(req: UpsertRequest, request: Request, x_api_key: str = Depends(verify_api_key)):
     try:
         indexing_service: IndexingService = request.app.state.indexing_service
         return await indexing_service.upsert_items(req.items)
@@ -149,7 +149,7 @@ async def upsert(req: UpsertRequest, request: Request, api_key: str = Depends(ve
 
 
 @app.post("/delete-record", response_model=DeleteResponse)
-async def delete_record(req: DeleteRequest, request: Request, api_key: str = Depends(verify_api_key)):
+async def delete_record(req: DeleteRequest, request: Request, x_api_key: str = Depends(verify_api_key)):
     try:
         pinecone_service: PineconeService = request.app.state.pinecone_service
         cloudinary_public_id = req.cloudinary_public_id
@@ -169,7 +169,7 @@ async def delete_record(req: DeleteRequest, request: Request, api_key: str = Dep
 
 
 @app.post("/sim-search", response_model=SimSearchResponse)
-async def similarity_search(req: SimSearchRequest, request: Request, api_key: str = Depends(verify_api_key)):
+async def similarity_search(req: SimSearchRequest, request: Request, x_api_key: str = Depends(verify_api_key)):
     """Retrieves similar images based on the provided query_text and/or cloudinary_public_id from Pinecone."""
     if req.query_text is None and req.cloudinary_public_id is None:
         raise HTTPException(status_code=400, detail="At least one of query_text or cloudinary_public_id must be provided")
@@ -186,11 +186,7 @@ async def similarity_search(req: SimSearchRequest, request: Request, api_key: st
     
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(
-    req: ChatRequest,
-    request: Request,
-    api_key: str = Depends(verify_api_key),
-):
+async def chat_endpoint(req: ChatRequest, request: Request, x_api_key: str = Depends(verify_api_key)):
     """Handles chat messages by running the stateless agent loop."""
     try:
         agent_result = await request.app.state.agent_service.run(
@@ -206,7 +202,7 @@ async def chat_endpoint(
 
 
 @app.post("/nsfw-check", response_model=NSFWCheckResponse)
-async def nsfw_check(req: NSFWCheckRequest, request: Request, api_key: str = Depends(verify_api_key)):
+async def nsfw_check(req: NSFWCheckRequest, request: Request, x_api_key: str = Depends(verify_api_key)):
     """Checks if an image contains NSFW content and returns confidence score."""
     try:
         logger.info(f"Received NSFW check request for image: {req.cloudinary_public_id}")
