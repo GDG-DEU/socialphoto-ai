@@ -7,8 +7,12 @@ services:
     command: uv run uvicorn app:combined_app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      # Artık backend'in Redis'ine sesleniyor!
+      # .env dosyasındaki REDIS_HOST (genelde localhost) değerini ezer.
+      # Local geliştirme için .env kullanılırken, Docker ağında container'ların birbirini bulabilmesi için bu override zorunludur.
+      # Artık backend'in Redis'ine (socialphoto_redis) sesleniyor!
       - REDIS_HOST=socialphoto_redis
     volumes:
       - .:/app
@@ -20,21 +24,22 @@ services:
       context: .
       dockerfile: Dockerfile
     command: uv run python -m src.workers.nsfw_worker # <-- DİKKAT: Dosya adının böyle olduğunu varsayıyorum
+    env_file:
+      - .env
     environment:
-      # AI servisi, backend'in Redis instance'ını (socialphoto_redis) kullanır
       - REDIS_HOST=socialphoto_redis
     volumes:
       - .:/app
     restart: unless-stopped
 
-  # 2. İşçi: Asıl Analist
   analyze-worker:
     build:
       context: .
       dockerfile: Dockerfile
     command: uv run python -m src.workers.analyze_worker
+    env_file:
+      - .env
     environment:
-      # AI servisi, backend'in Redis instance'ını (socialphoto_redis) kullanır
       - REDIS_HOST=socialphoto_redis
     volumes:
       - .:/app

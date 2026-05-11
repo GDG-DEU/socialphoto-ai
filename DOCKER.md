@@ -72,6 +72,7 @@ REDIS_DB=0
 
 # Application Configuration
 LOG_LEVEL=INFO
+#ML_MODELS_DIR=
 
 # API Configuration
 API_HOST=0.0.0.0
@@ -80,15 +81,35 @@ API_PORT=8000
 # Security Configuration
 API_KEY=your-secret-api-key-change-this-in-production
 SOCKET_IO_SECRET=your-secret-socketio-token-change-this-in-production
+X-API-Key=your-backend-communication-api-key # Backend Communication
 
 # Worker Configuration
 WORKER_RETRY_DELAY=1
 WORKER_MAX_RETRY_DELAY=30
 
 # TTL Configuration (seconds)
-JOB_QUEUED_TTL=86400
-JOB_COMPLETED_TTL=1800
-JOB_FAILED_TTL=1800
+JOB_QUEUED_TTL=86400  # 24 hours
+JOB_COMPLETED_TTL=1800  # 30 minutes
+JOB_FAILED_TTL=1800  # 30 minutes
+
+# CORS Configuration, later
+#CORS_ALLOWED_ORIGINS=["https://api.socialphoto.com", "http://localhost:8000"]
+
+# Pinecone Configuration
+PINECONE_API_KEY=your-pinecone-api-key
+PINECONE_INDEX_NAME=social-photo-index
+PINECONE_NAMESPACE=global-photos
+
+# Cloudinary Configuration
+CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
+CLOUDINARY_API_KEY=your-cloudinary-api-key
+CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+
+# AI Models Configuration
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL_NAME=gemini-2.5-flash-lite
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL_NAME=gpt-4o-mini
 ```
 
 > **⚠️ IMPORTANT:** Production ortamında `API_KEY` ve `SOCKET_IO_SECRET` değerlerini mutlaka değiştirin!
