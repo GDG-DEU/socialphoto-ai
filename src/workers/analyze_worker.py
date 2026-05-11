@@ -1,3 +1,4 @@
+import os
 import json
 import asyncio
 import logging
@@ -6,12 +7,26 @@ from urllib.parse import urlparse
 from redis.asyncio import ConnectionError
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
+from src.services.analyze_service import AnalyzeService
+from src.services.providers.gemini_provider import GeminiProvider
+from src.services.providers.openai_provider import OpenAIProvider
+
+gemini_provider = GeminiProvider() # MAIN PROVIDER
+openai_provider = OpenAIProvider() # FALLBACK PROVIDER
+analyze_service = AnalyzeService(providers=[gemini_provider, openai_provider]) #priority sequence
 
 
 JOB_PREFIX = "analyze_job:"
 shutdown_event = asyncio.Event()
 
-logging.basicConfig(level=logging.INFO)
+log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, log_level_str, logging.INFO)
+logging.basicConfig(level=log_level)
+
+# Suppress noisy HTTP libraries when in DEBUG mode
+for logger_name in ["httpx", "httpcore", "openai", "urllib3"]:
+    logging.getLogger(logger_name).setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,31 +61,32 @@ async def run_worker():
             await redis_client.hset(job_key, "status", "processing")
 
             try:
+                cloudinary_public_id = await redis_client.hget(job_key, "cloudinary_public_id")
+                post_id = await redis_client.hget(job_key, "post_id")
                 webhook_url = await redis_client.hget(job_key, "webhook_url")
+                language = await redis_client.hget(job_key, "language") or "en"
 
-                # --- FAKE AI WORK ---
-                logger.info("--- FAKE AI WORK ---")
-                logger.info(f"Processing job: {job_id}")
-                await asyncio.sleep(3)
-                score = 8.42
-                tags = ["sunset", "beach", "warm colors"]
+                if not cloudinary_public_id:
+                    raise ValueError(f"Job {job_id}: cloudinary_public_id not found in Redis")
+
+                # --- AI ANALYSIS ---
+                logger.info(f"Processing job {job_id}: analyzing image '{cloudinary_public_id}'")
+
+                result = await analyze_service.analyze(str(cloudinary_public_id), language=language)
 
                 await redis_client.hset(
                     job_key,
                     mapping={
                         "status": "completed",
-                        "aesthetic_score": score,
-                        "suggested_tags": json.dumps(tags)
+                        "result_json": json.dumps(result)
                     }
                 )
-                #BACKENDE MUTLAKA BU FORMATTA NOTİF LOADI ATTIĞINIZDAN EMİN OLUN.
+
+                # BACKENDE MUTLAKA BU FORMATTA NOTİF LOADI ATTIĞINIZDAN EMİN OLUN.
                 notification_payload = {
-                    "post_id": job_id,
+                    "post_id": post_id or job_id,
                     "status": "completed",
-                    "result": {
-                        "aesthetic_score": score,
-                        "suggested_tags": tags
-                    }
+                    "result": result
                 }
 
                 if webhook_url:
@@ -86,6 +102,8 @@ async def run_worker():
                     },
                 )
                 await notification_service.notify_job_completion(notification_payload)
+
+                logger.info(f"Job {job_id} completed successfully.")
 
                 await redis_client.expire(job_key, 1800) # 30 dakika
 

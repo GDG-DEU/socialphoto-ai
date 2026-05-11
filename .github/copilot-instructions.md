@@ -21,7 +21,7 @@
 - **Combined ASGI app**: FastAPI and Socket.IO are mounted together in `app.py`.
 
 ## Coding Standards
-- Use **Pydantic** for all request/response models.
+- Use **Pydantic** for all request/response models, settings, environment variables.
 - Implement **Type Hinting** for all function signatures.
 - Prefer **async def** for all I/O-bound operations.
 - Follow standard software design principles (SOLID, DRY, KISS, separation of concerns).
