@@ -12,6 +12,7 @@ from src.services.sim_search_service import SimSearchService, init_sim_search_se
 from src.services.sim_search.encoder import Encoder
 import json
 import logging
+from rich.logging import RichHandler
 import uuid
 from contextlib import asynccontextmanager
 from src.config import get_settings
@@ -24,7 +25,12 @@ import asyncio
 
 
 settings = get_settings()
-logging.basicConfig(level=settings.log_level)
+logging.basicConfig(
+    level=settings.log_level,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager

@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import logging
+from rich.logging import RichHandler
 import signal
 from urllib.parse import urlparse
 from redis.asyncio import ConnectionError
@@ -20,7 +21,9 @@ log_level_str = get_settings().log_level.upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
 logging.basicConfig(
     level=log_level,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
 )
 
 # Suppress noisy HTTP libraries when in DEBUG mode
