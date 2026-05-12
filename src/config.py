@@ -38,8 +38,25 @@ class Settings(BaseSettings):
     cloudinary_api_secret: str | None = None
 
     gemini_api_key: str | None = None
+    gemini_model_name: str | None = None
+
+    openai_api_key: str | None = None
+    openai_model_name: str | None = None
+    
+    analyze_system_instruction: str = (
+        "You are an expert photography critic for a social media platform for photographers. "
+        "Your role is to comprehensively analyze images, evaluating aesthetic and technical quality, composition, and color profile."
+    )
+    analyze_prompt_template: str = (
+        "Analyze this photo.\n"
+        "IMPORTANT: Your `improvement_tips` must focus ONLY on photographic execution (lighting, composition, editing). DO NOT suggest watermarks, text overlays, or business advice.\n"
+        "IMPORTANT: Write your responses in the following language: {language}"
+    )
 
     ml_models_dir: str = "models/ml"
+
+    max_image_size: int = 1024
+    res_threshold: int = 1024
 
 
 @lru_cache

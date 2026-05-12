@@ -99,6 +99,7 @@ async def analyze_image(req: AnalyzeRequest, x_api_key: str = Depends(verify_api
                 "job_id": job_id,
                 "post_id": req.post_id,
                 "cloudinary_public_id": req.cloudinary_public_id,
+                "language": req.language or "en",
                 "status": "queued"
             }
         )
@@ -124,12 +125,9 @@ async def get_analyze_job_status(job_id: str, x_api_key: str = Depends(verify_ap
     error = job_data.get("error")
     result = None
     if status == "completed":
-        score = job_data.get("aesthetic_score")
-        tags = job_data.get("suggested_tags")
-        result = {
-            "aesthetic_score": float(score) if score else None,
-            "suggested_tags": json.loads(tags) if tags else []
-        }
+        result_json = job_data.get("result_json")
+        if result_json:
+            result = json.loads(result_json)
     return {
         "job_id": job_id,
         "status": status,

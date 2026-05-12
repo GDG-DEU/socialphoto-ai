@@ -218,6 +218,10 @@ components:
         cloudinary_public_id:
           type: string
           description: Cloudinary'deki görselin public ID'si (örn. "photos/cld-sample-5")
+        language:
+          type: string
+          description: AI geri bildirimi (critique) için dil seçeneği (örn. "tr", "en"). Varsayılan "en".
+          default: "en"
 
     UpsertItem:
       type: object
@@ -280,6 +284,9 @@ components:
     AnalyzeJobStatusResponse:
       type: object
       properties:
+        job_id:
+          type: string
+          example: "550e8400-e29b-41d4-a716-446655440000"
         status:
           type: string
           enum: [queued, processing, completed, failed]
@@ -287,13 +294,60 @@ components:
           type: object
           nullable: true
           properties:
-            aesthetic_score:
-              type: number
-              format: float
-            suggested_tags:
-              type: array
-              items:
-                type: string
+            metrics:
+              type: object
+              properties:
+                aesthetic:
+                  type: object
+                  properties:
+                    overall_score: { type: number, format: float }
+                    technical_quality: { type: number, format: float }
+                    lighting_score: { type: number, format: float }
+                    composition_score: { type: number, format: float }
+                composition_details:
+                  type: object
+                  properties:
+                    rule_of_thirds: { type: number, format: float }
+                    symmetry: { type: number, format: float }
+                    depth_of_field: { type: string }
+                    balance: { type: string }
+                visual_characteristics:
+                  type: object
+                  properties:
+                    contrast: { type: number, format: float }
+                    saturation: { type: number, format: float }
+                    sharpness: { type: number, format: float }
+                    exposure: { type: string }
+            color_profile:
+              type: object
+              properties:
+                dominant_colors:
+                  type: array
+                  items: { type: string }
+                color_harmony: { type: string }
+                vibrancy: { type: number, format: float }
+            semantic_analysis:
+              type: object
+              properties:
+                tags:
+                  type: array
+                  items: { type: string }
+                scene_type: { type: string }
+                mood: { type: string }
+                objects_detected:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      label: { type: string }
+                      confidence: { type: number, format: float }
+            ai_feedback:
+              type: object
+              properties:
+                short_critique: { type: string }
+                improvement_tips:
+                  type: array
+                  items: { type: string }
         error:
           type: string
           nullable: true

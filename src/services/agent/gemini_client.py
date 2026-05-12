@@ -23,7 +23,7 @@ class GeminiClient:
             types.FunctionDeclaration(**tool.to_gemini_declaration()) for tool in tools
         ]
         self._client = genai.Client(api_key=api_key)
-        self._model_name = "gemini-2.5-flash-lite"
+        self._model_name = get_settings().gemini_model_name
         self._config = types.GenerateContentConfig(
             system_instruction=(
                 "You are a helpful assistant for a photography social media app. Your goal is to help photographers to improve themselves and find inspiration. "

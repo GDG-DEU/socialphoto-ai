@@ -1,9 +1,54 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Literal, Optional
 
 class AnalyzeRequest(BaseModel):
     post_id: str
     cloudinary_public_id: str
+    language: Optional[str] = "en"
+
+
+class AestheticMetrics(BaseModel):
+    overall_score: float = Field(ge=0.0, le=10.0)
+    technical_quality: float = Field(ge=0.0, le=1.0)
+    lighting_score: float = Field(ge=0.0, le=1.0)
+    composition_score: float = Field(ge=0.0, le=1.0)
+
+class CompositionDetails(BaseModel):
+    rule_of_thirds: float = Field(ge=0.0, le=1.0)
+    symmetry: float = Field(ge=0.0, le=1.0)
+    depth_of_field: str = Field(description="1-2 words")
+    balance: str = Field(description="1-2 words")
+
+class VisualCharacteristics(BaseModel):
+    contrast: float = Field(ge=0.0, le=1.0)
+    saturation: float = Field(ge=0.0, le=1.0)
+    sharpness: float = Field(ge=0.0, le=1.0)
+    exposure: str = Field(description="1-2 words")
+
+class Metrics(BaseModel):
+    aesthetic: AestheticMetrics
+    composition_details: CompositionDetails
+    visual_characteristics: VisualCharacteristics
+
+class ColorProfile(BaseModel):
+    dominant_colors: list[str] = Field(description="max 3 HEX")
+    color_harmony: str = Field(description="1-2 words")
+    vibrancy: float = Field(ge=0.0, le=1.0)
+
+class SemanticAnalysis(BaseModel):
+    tags: list[str] = Field(description="1-3 tags, lowercase, no #")
+    scene_type: str = Field(description="1-3 words")
+    mood: str = Field(description="1-2 words")
+
+class AIFeedback(BaseModel):
+    short_critique: str = Field(description="1 short sentence") 
+    improvement_tips: list[str] = Field(description="0-3 tips, only focus on photographic technique/lighting/composition/editing")
+
+class AnalyzeResult(BaseModel):
+    metrics: Metrics
+    color_profile: ColorProfile
+    semantic_analysis: SemanticAnalysis
+    ai_feedback: AIFeedback
 
 
 class AnalyzeJobResponse(BaseModel):
