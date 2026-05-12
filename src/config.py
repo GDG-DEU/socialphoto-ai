@@ -55,6 +55,9 @@ class Settings(BaseSettings):
 
     ml_models_dir: str = "models/ml"
 
+    max_image_size: int = 1024
+    res_threshold: int = 1024
+
 
 @lru_cache
 def get_settings() -> Settings:

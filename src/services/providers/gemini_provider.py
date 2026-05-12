@@ -22,17 +22,18 @@ class GeminiProvider(VisionProvider):
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not set")
 
+        model_name = settings.gemini_model_name
+        if not model_name or not model_name.strip():
+            raise ValueError("GEMINI_MODEL_NAME is not set")
+
         self._client = genai.Client(api_key=api_key)
-        self._model_name = settings.gemini_model_name
+        self._model_name = model_name
         self._config = types.GenerateContentConfig(
             system_instruction=settings.analyze_system_instruction,
             response_mime_type="application/json",
             response_schema=AnalyzeResult,
             temperature=0.0,
         )
-        
-        self.max_image_size = 1024
-        self.res_threshold = 1920
 
     @property
     def name(self) -> str:
@@ -44,8 +45,8 @@ class GeminiProvider(VisionProvider):
         rgb_image = image.convert("RGB")
         
         # Downsize if it exceeds HD resolution
-        if rgb_image.width > self.res_threshold or rgb_image.height > self.res_threshold:
-            rgb_image.thumbnail((self.max_image_size, self.max_image_size))
+        if rgb_image.width > settings.res_threshold or rgb_image.height > settings.res_threshold:
+            rgb_image.thumbnail((settings.max_image_size, settings.max_image_size))
             
         buffer = BytesIO()
         rgb_image.save(buffer, format="JPEG")
@@ -78,4 +79,15 @@ class GeminiProvider(VisionProvider):
             )
 
         result = response.parsed
+        if result is None:
+            response_text = getattr(response, "text", None)
+            error_message = (
+                f"Failed to parse structured response from provider={self.name}, "
+                f"model={self._model_name}"
+            )
+            if response_text:
+                error_message = f"{error_message}. Raw response: {response_text}"
+                
+            raise ValueError(error_message)
+
         return result.model_dump()

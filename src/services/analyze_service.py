@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import asyncio
-import base64
 import logging
-from io import BytesIO
 from typing import Any
 
 from src.services.providers.vision_provider import VisionProvider
@@ -13,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class AnalyzeService:
-    """Calls AI providers to produce an aesthetic score and tag suggestions for a photo."""
+    """Calls AI providers to produce structured analysis results for a photo."""
 
     def __init__(self, providers: list[VisionProvider]) -> None:
         if not providers:

@@ -3,17 +3,17 @@ import asyncio
 import logging
 import signal
 from redis.asyncio import ConnectionError
+from src.config import get_settings
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 from src.services.nsfw_service import NSFWService
 from src.utils.image_fetcher import fetch_cloudinary_image
 
-nsfw_service = NSFWService()
 
 NSFW_JOB_PREFIX = "nsfw_job:"
 shutdown_event = asyncio.Event()
 
-log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level_str = get_settings().log_level.upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
 logging.basicConfig(
     level=log_level,
@@ -21,8 +21,10 @@ logging.basicConfig(
 )
 
 # Suppress noisy HTTP libraries when in DEBUG mode
-for logger_name in ["httpx", "httpcore", "openai", "urllib3"]:
-    logging.getLogger(logger_name).setLevel(logging.WARNING)
+if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+    for logger_name in ["httpx", "httpcore", "openai", "urllib3"]:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,7 @@ def signal_handler(sig, frame):
     shutdown_event.set()
 
 async def run_worker():
+    nsfw_service = NSFWService()
     logger.info("NSFW Analyze worker started, waiting for jobs in 'nsfw_queue'...")
     retry_delay = 1
     max_retry_delay = 30
