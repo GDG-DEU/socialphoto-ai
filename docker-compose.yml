@@ -1,21 +1,4 @@
 services:
-  redis:
-    image: redis:7-alpine
-    container_name: ai-service-redis
-    # Şifreyi ve env_file satırını sildik!
-    ports:
-      - "127.0.0.1:6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - ai-service-network
-
   api:
     build:
       context: .
@@ -24,38 +7,46 @@ services:
     command: uv run uvicorn app:combined_app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
-    depends_on:
-      redis:
-        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      - REDIS_HOST=redis
+      # .env dosyasındaki REDIS_HOST (genelde localhost) değerini ezer.
+      # Local geliştirme için .env kullanılırken, Docker ağında container'ların birbirini bulabilmesi için bu override zorunludur.
+      # Artık backend'in Redis'ine (socialphoto_redis) sesleniyor!
+      - REDIS_HOST=socialphoto_redis
     volumes:
       - .:/app
     restart: unless-stopped
-    networks:
-      - ai-service-network
+    # networks kısmı yazmıyor çünkü otomatik olarak aşağıdaki 'default' ağına girecek
 
-  worker:
+  nsfw-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uv run python -m src.workers.nsfw_worker # <-- DİKKAT: Dosya adının böyle olduğunu varsayıyorum
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=socialphoto_redis
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+  analyze-worker:
     build:
       context: .
       dockerfile: Dockerfile
     command: uv run python -m src.workers.analyze_worker
-    depends_on:
-      redis:
-        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      - REDIS_HOST=redis
+      - REDIS_HOST=socialphoto_redis
     volumes:
       - .:/app
     restart: unless-stopped
-    networks:
-      - ai-service-network
-    deploy:
-      replicas: 2
-
-volumes:
-  redis_data:
+    # networks kısmı yazmıyor çünkü otomatik olarak aşağıdaki 'default' ağına girecek
 
 networks:
-  ai-service-network:
-    driver: bridge
+  default:
+    name: socialphoto_backend_default # Backend klasörünün ismine göre değişir
+    external: true

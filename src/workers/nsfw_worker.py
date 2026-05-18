@@ -1,22 +1,34 @@
-import json
+import os
 import asyncio
 import logging
+from rich.logging import RichHandler
 import signal
 from redis.asyncio import ConnectionError
+from src.config import get_settings
 from src.services.redis_client import redis_client
 from src.services.notification_service import notification_service
 from src.services.nsfw_service import NSFWService
 from src.utils.image_fetcher import fetch_cloudinary_image
 
-nsfw_service = NSFWService()
 
 NSFW_JOB_PREFIX = "nsfw_job:"
 shutdown_event = asyncio.Event()
 
+log_level_str = get_settings().log_level.upper()
+log_level = getattr(logging, log_level_str, logging.INFO)
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=log_level,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
 )
+
+# Suppress noisy HTTP libraries when in DEBUG mode
+if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+    for logger_name in ["httpx", "httpcore", "openai", "urllib3"]:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
+
+
 logger = logging.getLogger(__name__)
 
 def signal_handler(sig, frame):
@@ -24,6 +36,7 @@ def signal_handler(sig, frame):
     shutdown_event.set()
 
 async def run_worker():
+    nsfw_service = NSFWService()
     logger.info("NSFW Analyze worker started, waiting for jobs in 'nsfw_queue'...")
     retry_delay = 1
     max_retry_delay = 30
@@ -42,6 +55,7 @@ async def run_worker():
 
             try:
                 cloudinary_public_id = await redis_client.hget(job_key, "cloudinary_public_id")
+                webhook_url = await redis_client.hget(job_key, "webhook_url")
 
                 if not cloudinary_public_id:
                     raise Exception(f"Job {job_id} için cloudinary_public_id bulunamadı!")
@@ -63,12 +77,17 @@ async def run_worker():
                 )
 
                 # 2. Backend'e bildirimi gönder
-                await notification_service.notify_job_completion({
+                notification_payload = {
                     "job_id": job_id,
                     "status": "completed",
                     "nsfw_score": nsfw_score,
                     "cloudinary_public_id": cloudinary_public_id
-                })
+                }
+                
+                if webhook_url:
+                     notification_payload["webhook_url"] = webhook_url
+
+                await notification_service.notify_job_completion(notification_payload)
 
                 # 3. Temizlik ve Log
                 await redis_client.expire(job_key, 1800)
@@ -85,11 +104,17 @@ async def run_worker():
                 )
                 await redis_client.expire(job_key, 1800)
 
-                await notification_service.notify_job_completion({
+                failure_payload = {
                     "job_id": job_id,
                     "status": "failed",
                     "error": str(e)
-                })
+                }
+                
+                # Sadece webhook_url exception'dan önce başarıyla alındıysa ekle
+                if 'webhook_url' in locals() and webhook_url:
+                     failure_payload["webhook_url"] = webhook_url
+
+                await notification_service.notify_job_completion(failure_payload)
 
         except ConnectionError as e:
             logger.error(f"Redis connection error: {e}. Retrying in {retry_delay} seconds...")

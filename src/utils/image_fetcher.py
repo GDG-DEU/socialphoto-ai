@@ -1,17 +1,20 @@
 import logging
-import os
 from io import BytesIO
 from PIL import Image
 import httpx
 import cloudinary
 import cloudinary.utils
 
+from src.config import get_settings
+
 logger = logging.getLogger(__name__)
 
+settings = get_settings()
+
 cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    cloud_name=settings.cloudinary_cloud_name,
+    api_key=settings.cloudinary_api_key,
+    api_secret=settings.cloudinary_api_secret,
     secure=True,
 )
 

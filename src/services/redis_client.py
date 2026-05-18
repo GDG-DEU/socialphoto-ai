@@ -1,14 +1,14 @@
 import redis.asyncio as redis
-import os
-from dotenv import load_dotenv
+
+from src.config import get_settings
 
 
-load_dotenv()
+settings = get_settings()
 
 redis_client = redis.Redis(
-    host=os.getenv("REDIS_HOST", "localhost"),
-    port=int(os.getenv("REDIS_PORT", "6379")),
-    db=int(os.getenv("REDIS_DB", "0")),
-    password=os.getenv("REDIS_PASSWORD"),
+    host=settings.redis_host,
+    port=settings.redis_port,
+    db=settings.redis_db,
+    password=settings.redis_password,
     decode_responses=True
 )

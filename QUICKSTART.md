@@ -20,6 +20,9 @@ python main.py
 ```bash
 source .venv/bin/activate
 python -m src.workers.analyze_worker
+
+# Debug için
+LOG_LEVEL=DEBUG python -m src.workers.analyze_worker 
 ```
 
 ## 🧪 Test
