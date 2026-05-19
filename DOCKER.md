@@ -72,6 +72,7 @@ REDIS_DB=0
 
 # Application Configuration
 LOG_LEVEL=INFO
+APP_ENV=production
 #ML_MODELS_DIR=
 
 # API Configuration
@@ -364,7 +365,7 @@ docker-compose -f docker-compose.yml up -d --build
 
 ## 📝 Notes
 
-- **Development**: Hot reload için volume mount edilmiş
-- **Production**: Volume mount kaldırılmalı, optimize image kullanılmalı
+- **Development**: `APP_ENV=development` ile reload aktif olur; volume mount kullanılır
+- **Production**: `APP_ENV=production` ile reload kapalıdır; volume mount kaldırılmalı, optimize image kullanılmalı
 - **Scaling**: Worker'ları ihtiyaca göre scale edin
 - **Monitoring**: Prometheus + Grafana eklenebilir
